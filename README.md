@@ -39,6 +39,8 @@ Future plans include some of the following:
 * The ability to select what patches you want this tool to apply
 * The ability to modify most/all in-game settings from the launcher
 * An embeded server-browser, with favorites, ability to connect from launcher, etc.
+* Make less ugly
+* Fix the many bugs that exist
 
 More to come!
 
