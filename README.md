@@ -2,6 +2,8 @@
 
 ![Banner logo](https://i.imgur.com/7mNKO7X.png)
 
+[Download latest release](https://github.com/solenum/KillingFloorLauncher/releases/latest/download/KFLauncher.exe)
+
 # What is this?
 This is a standalone-launcher for Killing Floor (1).
 
