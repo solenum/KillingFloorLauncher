@@ -1,0 +1,54 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:KFLauncher.ViewModels"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="600" d:DesignHeight="800"
+        x:Class="KFLauncher.Views.MainWindow"
+        Icon="/Assets/Logo.png"
+        Title="KFLauncher"
+		Width="600" Height="800"
+		MaxWidth="600" MaxHeight="800"
+		MinWidth="600" MinHeight="800">
+
+    <Design.DataContext>
+        <vm:MainWindowViewModel/>
+    </Design.DataContext>
+
+	<Window.Styles>
+		<Style Selector="TextBlock.h1">
+			<Setter Property="FontSize" Value="32"/>
+			<Setter Property="FontWeight" Value="Bold"/>
+			<Setter Property="Foreground" Value="#FF0000" />
+		</Style>
+	</Window.Styles>
+	
+	<StackPanel Orientation="Vertical" Margin="8" Width="592" Height="792">
+		<!-- Header image -->
+		<Grid>
+			<Image Source="/Assets/Logo.png" Width="400" Margin="16" />
+		</Grid>
+
+		<!-- Detect config button -->
+		<Button Margin="0" Command="{Binding DetectConfig}" Content="Detect config path" Width="200" Height="32" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"  HorizontalAlignment="Center"/>
+
+		<!-- Config path -->
+		<Grid Margin="0 320 0 0" HorizontalAlignment="Center">
+			<Grid.ColumnDefinitions>
+				<ColumnDefinition Width="2*"/>
+				<ColumnDefinition Width="*"/>
+			</Grid.ColumnDefinitions>
+			
+			<StackPanel Grid.Column="0" Margin="0 6">
+				<TextBox Height="32" Watermark="Install Directory (usually steamapps\common\KillingFloor)" Text="{Binding GamePath}"/>
+			</StackPanel>
+
+			<StackPanel HorizontalAlignment="Center" Grid.Column="1" Margin="0 6">
+				<Button Content="Browse" Height="32" Command="{Binding FindGameFolder}"/>
+			</StackPanel>
+		</Grid>
+
+		<!-- Launch game button -->
+		<Button Margin="0 16" Command="{Binding StartGame}" Content="Launch Killing Floor" Width="500" Height="64" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"  HorizontalAlignment="Center" VerticalAlignment="Bottom"/>
+	</StackPanel>
+</Window>
