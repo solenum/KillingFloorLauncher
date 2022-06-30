@@ -13,8 +13,8 @@ namespace KFLauncher.ViewModels
 {
     internal class Launcher
     {
-        private InternalConfig internalConfig = new();
-        private KFConfig kfConfig;
+        public InternalConfig internalConfig = new();
+        public KFConfig kfConfig;
         public string GamePath 
         { 
             get 

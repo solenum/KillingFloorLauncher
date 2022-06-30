@@ -22,13 +22,27 @@ namespace KFLauncher.Models
 
         private string KillingFloorIni
         {
-            get => this.ReadIni(this.config.Config.GamePath + this.KillingFloorIniPath);
+            get
+            {
+                if (File.Exists(this.config.Config.GamePath + this.KillingFloorIniPath))
+                {
+                    return this.ReadIni(this.config.Config.GamePath + this.KillingFloorIniPath);
+                }
+                return String.Empty;
+            }
             set => this.WriteIni(this.config.Config.GamePath + this.KillingFloorIniPath, value);
 
         }
         private string UserIni 
-        { 
-            get => this.ReadIni(this.config.Config.GamePath + this.UserIniPath);
+        {
+            get
+            {
+                if (File.Exists(this.config.Config.GamePath + this.UserIniPath))
+                {
+                    return this.ReadIni(this.config.Config.GamePath + this.UserIniPath);
+                }
+                return String.Empty;
+            }
             set => this.WriteIni(this.config.Config.GamePath + this.UserIniPath, value);
         }
 
@@ -92,28 +106,177 @@ namespace KFLauncher.Models
 
         public void ApplySetPatches()
         {
-            // TODO: allow selecting what patches to apply
             this.ApplyAllFixes();
         }
-
+        
         public void ApplyAllFixes()
         {
             // TODO: investigate best values (networking specifically seems meh?)
-            this.FixCache();
-            this.FixFPSLock();
-            this.FixPerformance();
-            this.FixMouseLag();
-            this.FixNetspeed();
+            if (this.config.Config.DisableCache)
+            {
+                this.FixCacheDisable();
+            }
+            else
+            {
+                this.FixCacheEnable();
+            }
+            if (this.config.Config.UnlockFramerate)
+            {
+                this.FixFPSLock();
+                this.FixNetspeed();
+            }
+            if (this.config.Config.OptimizePerformance)
+            {
+                this.FixPerformance();
+            }
+            if (this.config.Config.FixMouseInput)
+            {
+                this.FixMouseLag();
+            }
+            if (this.config.Config.IncreaseCacheLimit)
+            {
+                this.FixCacheSizeEnable();
+            }
+            else
+            {
+                this.FixCacheSizeDisable();
+            }
+            if (this.config.Config.DisableMovies)
+            {
+                this.FixMoviesDisable();
+            }
+            else
+            {
+                this.FixMoviesEnable();
+            }
+            if (this.config.Config.DisableMusic)
+            {
+                this.FixMusic();
+            }
+            if (this.config.Config.SkipIntro)
+            {
+                this.FixIntroDisable();
+            }
+            else
+            {
+                this.FixIntroEnable();
+            }
+            if (this.config.Config.QuickHeal)
+            {
+                this.FixQuickHealEnable();
+            }
+            else
+            {
+                this.FixQuickHealDisable();
+            }
+        }
+        public void SetRecommended()
+        {
+            this.config.Config.DisableCache = false;
+            this.config.Config.OptimizePerformance = true;
+            this.config.Config.DisableMusic = false;
+            this.config.Config.SkipIntro = true;
+            this.config.Config.IncreaseCacheLimit = true;
+            this.config.Config.UnlockFramerate = true;
+            this.config.Config.FixMouseInput = true;
+            this.config.Config.DisableMovies = false;
+            this.config.WriteConfig();
         }
 
-        public void FixCache()
+        void FixMoviesDisable()
         {
-            Debug.WriteLine("Fixing cache");
+            if (Directory.Exists(this.config.Config.GamePath + "\\Movies"))
+            {
+                Debug.WriteLine("Enabling movies");
+                Directory.Move(this.config.Config.GamePath + "\\Movies", this.config.Config.GamePath + "\\_Movies");
+            }
+        }
+
+        void FixMoviesEnable()
+        {
+            if (Directory.Exists(this.config.Config.GamePath + "\\_Movies"))
+            {
+                Debug.WriteLine("Disabling movies");
+                Directory.Move(this.config.Config.GamePath + "\\_Movies", this.config.Config.GamePath + "\\Movies");
+            }
+        }
+
+        public void FixQuickHealEnable()
+        {
+            Debug.WriteLine("Binding quickheal");
+            string ini = this.UserIni;
+            ini = this.PatchIni(ini, "Q", "getweapon syringe | onrelease SwitchToLastWeapon | onrelease quickheal");
+            this.UserIni = ini;
+        }
+
+        public void FixQuickHealDisable()
+        {
+            Debug.WriteLine("Unbinding quickheal");
+            string ini = this.UserIni;
+            ini = this.PatchIni(ini, "Q", "QuickHeal");
+            this.UserIni = ini;
+        }
+
+        public void FixIntroEnable()
+        {
+            Debug.WriteLine("Enabling intro");
             string ini = this.KillingFloorIni;
-            ini = this.PatchIni(ini, "CacheSizeMegs", "256"); // 32?
-            ini = this.PatchIni(ini, "UsePrecaching", "True"); // False?
+            ini = this.PatchIni(ini, "LocalMap", "KFintro.rom");
+            this.KillingFloorIni = ini;
+        }
+        public void FixIntroDisable()
+        {
+            Debug.WriteLine("Disabling intro");
+            string ini = this.KillingFloorIni;
+            ini = this.PatchIni(ini, "LocalMap", "KF-Menu.rom");
+            this.KillingFloorIni = ini;
+        }
+
+        public void FixMusic()
+        {
+            Debug.WriteLine("Disabling music");
+            string ini = this.UserIni;
+            ini = this.PatchIni(ini, "bDisableMusicInGame", "True");
+            this.UserIni = ini;
+
+            ini = this.KillingFloorIni;
+            ini = this.PatchIni(ini, "MusicVolume", "0.0000");
+            this.KillingFloorIni = ini;
+        }
+
+        public void FixCacheEnable()
+        {
+            Debug.WriteLine("Enabling cache");
+            string ini = this.KillingFloorIni;
+            ini = this.PatchIni(ini, "UsePrecaching", "True");
+            ini = this.PatchIni(ini, "UsePrecache", "True");
+            ini = this.PatchIni(ini, "bNeverPrecache", "False");
+            this.KillingFloorIni = ini;
+        }
+
+        public void FixCacheDisable()
+        {
+            Debug.WriteLine("Disabling cache");
+            string ini = this.KillingFloorIni;
+            ini = this.PatchIni(ini, "UsePrecaching", "False");
             ini = this.PatchIni(ini, "UsePrecache", "False");
             ini = this.PatchIni(ini, "bNeverPrecache", "True");
+            this.KillingFloorIni = ini;
+        }
+
+        public void FixCacheSizeEnable()
+        {
+            Debug.WriteLine("Fixing cache size");
+            string ini = this.KillingFloorIni;
+            ini = this.PatchIni(ini, "CacheSizeMegs", "256");
+            this.KillingFloorIni = ini;
+        }
+
+        public void FixCacheSizeDisable()
+        {
+            Debug.WriteLine("Fixing cache size");
+            string ini = this.KillingFloorIni;
+            ini = this.PatchIni(ini, "CacheSizeMegs", "32");
             this.KillingFloorIni = ini;
         }
 
@@ -129,9 +292,9 @@ namespace KFLauncher.Models
         {
             Debug.WriteLine("Fixing performance");
             string ini = this.KillingFloorIni;
-            ini = this.PatchIni(ini, "UseTripleBuffering", "False");
-            ini = this.PatchIni(ini, "CheckForOverflow", "False"); // True?
-            ini = this.PatchIni(ini, "AvoidHitches", "False"); // True?
+            //ini = this.PatchIni(ini, "UseTripleBuffering", "True");
+            ini = this.PatchIni(ini, "CheckForOverflow", "True"); // False?
+            ini = this.PatchIni(ini, "AvoidHitches", "False"); // False?
             this.KillingFloorIni = ini;
         }
         public void FixMouseLag()
@@ -140,7 +303,7 @@ namespace KFLauncher.Models
             string ini = this.KillingFloorIni;
             ini = this.PatchIni(ini, "ReduceMouseLag", "True"); // False?
             this.KillingFloorIni = ini;
-
+            
             ini = this.UserIni;
             ini = this.PatchIni(ini, "MouseSamplingTime", "0.001");
             ini = this.PatchIni(ini, "MouseAccelThreshold", "-1");
@@ -168,7 +331,7 @@ namespace KFLauncher.Models
 
         private string ReadIni(string path)
         {
-            while (!AwaitFileAccess(path)) { }
+            //while (!AwaitFileAccess(path)) { }
             string ini = String.Empty;
             if (File.Exists(path))
             {
@@ -180,7 +343,7 @@ namespace KFLauncher.Models
 
         private void WriteIni(string path, string ini)
         {
-            while (AwaitFileAccess(path) == false) { }
+            //while (AwaitFileAccess(path) == false) { }
             File.WriteAllText(path, ini);
         }
 

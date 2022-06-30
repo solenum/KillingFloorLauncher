@@ -3,11 +3,10 @@
         xmlns:vm="using:KFLauncher.ViewModels"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        mc:Ignorable="d" d:DesignWidth="600" d:DesignHeight="800"
+        mc:Ignorable="d"
         x:Class="KFLauncher.Views.MainWindow"
         Icon="/Assets/Logo.png"
         Title="KFLauncher"
-	    Width="600" Height="800"
 	    SizeToContent="WidthAndHeight"
 		CanResize="False">
 
@@ -54,6 +53,9 @@
 		<Style Selector="CheckBox:checked /template/ Path#CheckGlyph">
 			<Setter Property="Fill" Value="#000"/>
 		</Style>
+		<Style Selector="CheckBox:unchecked">
+			<Setter Property="Foreground" Value="#666"/>
+		</Style>
 		<Style Selector="CheckBox:checked /template/ Border#NormalRectangle">
 			<Setter Property="BorderBrush" Value="#00CC12"/>
 			<Setter Property="Background" Value="#00CC12"/>
@@ -72,7 +74,7 @@
 		<!-- Detect config button -->
 		<StackPanel Margin="0" Orientation="Horizontal" HorizontalAlignment="Center">
 			<Button Margin="8" Command="{Binding DetectConfig}" Content="Detect game path" Width="200" Padding="8" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"  HorizontalAlignment="Center"/>
-			<Button Margin="8" Command="{Binding DetectConfig}" Content="Use recommended" Width="200" Padding="8" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"  HorizontalAlignment="Center"/>
+			<Button Margin="8" Command="{Binding SetRecommended}" Content="Use recommended" Width="200" Padding="8" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"  HorizontalAlignment="Center"/>
 		</StackPanel>
 
 		<!-- Checkboxes -->
@@ -83,17 +85,18 @@
 			</Grid.ColumnDefinitions>
 
 			<StackPanel Grid.Column="0" Margin="16 0" HorizontalAlignment="Center">
-				<CheckBox>Disable cache</CheckBox>
-				<CheckBox>Optimize performance</CheckBox>
-				<CheckBox>Disable music</CheckBox>
-				<CheckBox>Skip intro</CheckBox>
+				<CheckBox IsChecked="{Binding DisableCache}">Disable cache (Can cause stutters)</CheckBox>
+				<CheckBox IsChecked="{Binding OptimizePerformance}">Optimize performance</CheckBox>
+				<CheckBox IsChecked="{Binding DisableMusic}">Disable music</CheckBox>
+				<CheckBox IsChecked="{Binding SkipIntro}">Skip intro</CheckBox>
+				<CheckBox IsChecked="{Binding QuickHeal}">Bind Q quickheal</CheckBox>
 			</StackPanel>
 
 			<StackPanel Grid.Column="1" Margin="16 0" HorizontalAlignment="Center">
-				<CheckBox>Increase cache limit</CheckBox>
-				<CheckBox>Unlock framerate</CheckBox>
-				<CheckBox>Fix mouse input</CheckBox>
-				<CheckBox>Disable movies</CheckBox>
+				<CheckBox IsChecked="{Binding IncreaseCacheLimit}">Increase cache limit</CheckBox>
+				<CheckBox IsChecked="{Binding UnlockFramerate}">Unlock framerate</CheckBox>
+				<CheckBox IsChecked="{Binding FixMouseInput}">Fix mouse input</CheckBox>
+				<CheckBox IsChecked="{Binding DisableMovies}">Disable movies</CheckBox>
 			</StackPanel>
 		</Grid>
 

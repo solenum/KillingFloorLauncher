@@ -141,6 +141,7 @@ namespace KFLauncher.Models
             public bool UnlockFramerate = true;
             public bool FixMouseInput = true;
             public bool DisableMovies = false;
+            public bool QuickHeal = true;
         }
     }
 }

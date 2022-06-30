@@ -139,10 +139,10 @@ ServerPackages=KFMod
 ServerPackages=KFChar
 
 [WinDrv.WindowsClient]
-WindowedViewportX=1920
-WindowedViewportY=1080
-FullscreenViewportX=1920
-FullscreenViewportY=1080
+WindowedViewportX=2560
+WindowedViewportY=1440
+FullscreenViewportX=2560
+FullscreenViewportY=1440
 MenuViewportX=640
 MenuViewportY=480
 Brightness=0.800000
@@ -233,7 +233,7 @@ MaxEAXVersion=255
 UsePrecache=True
 ReverseStereo=False
 Channels=32
-MusicVolume=0.10000
+MusicVolume=0.01000
 AmbientVolume=0.500000
 SoundVolume=0.30000
 VoiceVolume=10.000000
