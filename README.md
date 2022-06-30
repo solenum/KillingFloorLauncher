@@ -47,3 +47,7 @@ More to come!
 Contact me on discord at solenum#8718
 
 or on IRC at ##oodnet / libera
+
+### Screenshot
+
+![Screenshot of the app](https://i.imgur.com/p8WWvmn.png)
