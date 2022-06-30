@@ -36,10 +36,10 @@ On-boarding friends into the world of Killing Floor is also a difficult task whe
 This tool is very early-stage and only does some basic QoL changes.  While it is a simple operation, it saves the headache of dealing with the game overwriting your configuration changes constantly, and helps with on-boarding new people to the game without having them dig into configuration files to get the game playable.
 
 Future plans include some of the following:
-* The ability to select what patches you want this tool to apply
+* ~~The ability to select what patches you want this tool to apply~~
 * The ability to modify most/all in-game settings from the launcher
 * An embeded server-browser, with favorites, ability to connect from launcher, etc.
-* Make less ugly
+* ~~Make less ugly~~
 * Fix the many bugs that exist
 
 More to come!
@@ -50,4 +50,4 @@ or on IRC at ##oodnet / libera
 
 ### Screenshot
 
-![Screenshot of the app](https://i.imgur.com/p8WWvmn.png)
+![Screenshot of the app](https://i.imgur.com/okXuWex.png)
