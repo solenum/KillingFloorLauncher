@@ -7,9 +7,9 @@
         x:Class="KFLauncher.Views.MainWindow"
         Icon="/Assets/Logo.png"
         Title="KFLauncher"
-		Width="600" Height="800"
-		MaxWidth="600" MaxHeight="800"
-		MinWidth="600" MinHeight="800">
+	    Width="600" Height="800"
+	    SizeToContent="WidthAndHeight"
+		CanResize="False">
 
     <Design.DataContext>
         <vm:MainWindowViewModel/>
@@ -21,34 +21,99 @@
 			<Setter Property="FontWeight" Value="Bold"/>
 			<Setter Property="Foreground" Value="#FF0000" />
 		</Style>
+		<Style Selector="Button">
+			<Setter Property="Foreground" Value="#734d00"/>
+			<Setter Property="Background" Value="#e6b450"/>
+			<Setter Property="BorderBrush" Value="#C6A420"/>
+			<Setter Property="BorderThickness" Value="1"/>
+			<Setter Property="FontWeight" Value="Bold"/>
+			<Setter Property="CornerRadius" Value="4"/>
+		</Style>
+		<Style Selector="Button:pointerover /template/ ContentPresenter">
+			<Setter Property="Background" Value="#00CC12"/>
+		</Style>
+		<Style Selector="Button.Square">
+			<Setter Property="CornerRadius" Value="0 4 4 0"/>
+		</Style>
+		<Style Selector="Button.Launch">
+			<Setter Property="CornerRadius" Value="16 16 0 0"/>
+			<Setter Property="FontSize" Value="24"/>
+		</Style>
+		<Style Selector="TextBox.Square">
+			<Setter Property="CornerRadius" Value="4 0 0 4"/>
+			<Setter Property="BorderBrush" Value="#734d00"/>
+		</Style>
+		<Style Selector="CheckBox /template/ Border#NormalRectangle">
+			<Setter Property="BorderBrush" Value="#e6b450"/>
+			<Setter Property="Background" Value="#e6b450"/>
+		</Style>
+		<Style Selector="CheckBox:pointerover /template/ Border#NormalRectangle">
+			<Setter Property="BorderBrush" Value="#00CC12"/>
+			<Setter Property="Background" Value="#e6b450"/>
+		</Style>
+		<Style Selector="CheckBox:checked /template/ Path#CheckGlyph">
+			<Setter Property="Fill" Value="#000"/>
+		</Style>
+		<Style Selector="CheckBox:checked /template/ Border#NormalRectangle">
+			<Setter Property="BorderBrush" Value="#00CC12"/>
+			<Setter Property="Background" Value="#00CC12"/>
+		</Style>
+		<Style Selector="Window">
+			<Setter Property="Background" Value="#0b0e14"/>
+		</Style>
 	</Window.Styles>
 	
-	<StackPanel Orientation="Vertical" Margin="8" Width="592" Height="792">
+	<StackPanel Orientation="Vertical" Margin="0 0">
 		<!-- Header image -->
-		<Grid>
-			<Image Source="/Assets/Logo.png" Width="400" Margin="16" />
+		<Grid Margin="0 0 0 32">
+			<Image Source="/Assets/Logo.png" Width="550"/>
 		</Grid>
 
 		<!-- Detect config button -->
-		<Button Margin="0" Command="{Binding DetectConfig}" Content="Detect config path" Width="200" Height="32" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"  HorizontalAlignment="Center"/>
+		<StackPanel Margin="0" Orientation="Horizontal" HorizontalAlignment="Center">
+			<Button Margin="8" Command="{Binding DetectConfig}" Content="Detect game path" Width="200" Padding="8" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"  HorizontalAlignment="Center"/>
+			<Button Margin="8" Command="{Binding DetectConfig}" Content="Use recommended" Width="200" Padding="8" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"  HorizontalAlignment="Center"/>
+		</StackPanel>
+
+		<!-- Checkboxes -->
+		<Grid Margin="0 32" HorizontalAlignment="Center">
+			<Grid.ColumnDefinitions>
+				<ColumnDefinition Width="1*"/>
+				<ColumnDefinition Width="1*"/>
+			</Grid.ColumnDefinitions>
+
+			<StackPanel Grid.Column="0" Margin="16 0" HorizontalAlignment="Center">
+				<CheckBox>Disable cache</CheckBox>
+				<CheckBox>Optimize performance</CheckBox>
+				<CheckBox>Disable music</CheckBox>
+				<CheckBox>Skip intro</CheckBox>
+			</StackPanel>
+
+			<StackPanel Grid.Column="1" Margin="16 0" HorizontalAlignment="Center">
+				<CheckBox>Increase cache limit</CheckBox>
+				<CheckBox>Unlock framerate</CheckBox>
+				<CheckBox>Fix mouse input</CheckBox>
+				<CheckBox>Disable movies</CheckBox>
+			</StackPanel>
+		</Grid>
 
 		<!-- Config path -->
-		<Grid Margin="0 320 0 0" HorizontalAlignment="Center">
+		<Grid Margin="0 32" HorizontalAlignment="Center">
 			<Grid.ColumnDefinitions>
 				<ColumnDefinition Width="2*"/>
 				<ColumnDefinition Width="*"/>
 			</Grid.ColumnDefinitions>
 			
-			<StackPanel Grid.Column="0" Margin="0 6">
-				<TextBox Height="32" Watermark="Install Directory (usually steamapps\common\KillingFloor)" Text="{Binding GamePath}"/>
+			<StackPanel Grid.Column="0">
+				<TextBox Classes="Square" Height="32" Watermark="Install Directory (usually steamapps\common\KillingFloor)" Text="{Binding GamePath}"/>
 			</StackPanel>
 
-			<StackPanel HorizontalAlignment="Center" Grid.Column="1" Margin="0 6">
-				<Button Content="Browse" Height="32" Command="{Binding FindGameFolder}"/>
+			<StackPanel HorizontalAlignment="Center" Grid.Column="1">
+				<Button Classes="Square" Content="Browse" Height="32" Command="{Binding FindGameFolder}"/>
 			</StackPanel>
 		</Grid>
 
 		<!-- Launch game button -->
-		<Button Margin="0 16" Command="{Binding StartGame}" Content="Launch Killing Floor" Width="500" Height="64" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"  HorizontalAlignment="Center" VerticalAlignment="Bottom"/>
+		<Button Margin="0 16 0 0" Classes="Launch" Command="{Binding StartGame}" Content="Launch Killing Floor" Width="500" Height="64" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"  HorizontalAlignment="Center" VerticalAlignment="Bottom"/>
 	</StackPanel>
 </Window>

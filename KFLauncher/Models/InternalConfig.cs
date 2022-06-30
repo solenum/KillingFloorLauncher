@@ -133,6 +133,14 @@ namespace KFLauncher.Models
                     this._gamePath = this._gamePath.EndsWith(@"\\") ? this._gamePath.Substring(0, this._gamePath.Length - 2) : this._gamePath;
                 }
             }
+            public bool DisableCache = false;
+            public bool OptimizePerformance = true;
+            public bool DisableMusic = false;
+            public bool SkipIntro = true;
+            public bool IncreaseCacheLimit = true;
+            public bool UnlockFramerate = true;
+            public bool FixMouseInput = true;
+            public bool DisableMovies = false;
         }
     }
 }
