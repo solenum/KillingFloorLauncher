@@ -50,4 +50,4 @@ or on IRC at ##oodnet / libera
 
 ### Screenshot
 
-![Screenshot of the app](https://i.imgur.com/okXuWex.png)
+![Screenshot of the app](https://i.imgur.com/fnWiZNq.png)
