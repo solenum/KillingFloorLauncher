@@ -85,18 +85,18 @@
 			</Grid.ColumnDefinitions>
 
 			<StackPanel Grid.Column="0" Margin="16 0" HorizontalAlignment="Center">
-				<CheckBox IsChecked="{Binding DisableCache}">Disable cache (Can cause stutters)</CheckBox>
-				<CheckBox IsChecked="{Binding OptimizePerformance}">Optimize performance</CheckBox>
-				<CheckBox IsChecked="{Binding DisableMusic}">Disable music</CheckBox>
-				<CheckBox IsChecked="{Binding SkipIntro}">Skip intro</CheckBox>
-				<CheckBox IsChecked="{Binding QuickHeal}">Bind Q quickheal</CheckBox>
+				<CheckBox IsChecked="{Binding config.DisableCache}">Disable cache (Can cause stutters)</CheckBox>
+				<CheckBox IsChecked="{Binding config.OptimizePerformance}">Optimize performance</CheckBox>
+				<CheckBox IsChecked="{Binding config.DisableMusic}">Disable music</CheckBox>
+				<CheckBox IsChecked="{Binding config.SkipIntro}">Skip intro</CheckBox>
+				<CheckBox IsChecked="{Binding config.QuickHeal}">Bind Q quickheal</CheckBox>
 			</StackPanel>
 
 			<StackPanel Grid.Column="1" Margin="16 0" HorizontalAlignment="Center">
-				<CheckBox IsChecked="{Binding IncreaseCacheLimit}">Increase cache limit</CheckBox>
-				<CheckBox IsChecked="{Binding UnlockFramerate}">Unlock framerate</CheckBox>
-				<CheckBox IsChecked="{Binding FixMouseInput}">Fix mouse input</CheckBox>
-				<CheckBox IsChecked="{Binding DisableMovies}">Disable movies</CheckBox>
+				<CheckBox IsChecked="{Binding config.IncreaseCacheLimit}">Increase cache limit</CheckBox>
+				<CheckBox IsChecked="{Binding config.UnlockFramerate}">Unlock framerate</CheckBox>
+				<CheckBox IsChecked="{Binding config.FixMouseInput}">Fix mouse input</CheckBox>
+				<CheckBox IsChecked="{Binding config.DisableMovies}">Disable movies</CheckBox>
 			</StackPanel>
 		</Grid>
 
@@ -108,7 +108,7 @@
 			</Grid.ColumnDefinitions>
 			
 			<StackPanel Grid.Column="0">
-				<TextBox Classes="Square" Height="32" Watermark="Install Directory (usually steamapps\common\KillingFloor)" Text="{Binding GamePath}"/>
+				<TextBox Classes="Square" Height="32" Watermark="Install Directory (usually steamapps\common\KillingFloor)" Text="{Binding config.GamePath}"/>
 			</StackPanel>
 
 			<StackPanel HorizontalAlignment="Center" Grid.Column="1">

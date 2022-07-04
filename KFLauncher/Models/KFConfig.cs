@@ -14,7 +14,7 @@ namespace KFLauncher.Models
 {
     internal class KFConfig
     {
-        private InternalConfig config;
+        private JsonConfig config;
         private readonly string KillingFloorIniPath = "\\System\\KillingFloor.ini";
         private readonly string UserIniPath = "\\System\\User.ini";
         private FileSystemWatcher? watcher = null;
@@ -24,29 +24,29 @@ namespace KFLauncher.Models
         {
             get
             {
-                if (File.Exists(this.config.Config.GamePath + this.KillingFloorIniPath))
+                if (File.Exists(this.config.GamePath + this.KillingFloorIniPath))
                 {
-                    return this.ReadIni(this.config.Config.GamePath + this.KillingFloorIniPath);
+                    return this.ReadIni(this.config.GamePath + this.KillingFloorIniPath);
                 }
                 return String.Empty;
             }
-            set => this.WriteIni(this.config.Config.GamePath + this.KillingFloorIniPath, value);
+            set => this.WriteIni(this.config.GamePath + this.KillingFloorIniPath, value);
 
         }
         private string UserIni 
         {
             get
             {
-                if (File.Exists(this.config.Config.GamePath + this.UserIniPath))
+                if (File.Exists(this.config.GamePath + this.UserIniPath))
                 {
-                    return this.ReadIni(this.config.Config.GamePath + this.UserIniPath);
+                    return this.ReadIni(this.config.GamePath + this.UserIniPath);
                 }
                 return String.Empty;
             }
-            set => this.WriteIni(this.config.Config.GamePath + this.UserIniPath, value);
+            set => this.WriteIni(this.config.GamePath + this.UserIniPath, value);
         }
 
-        public KFConfig(InternalConfig config)
+        public KFConfig(JsonConfig config)
         {
             this.config = config;
         }
@@ -54,7 +54,7 @@ namespace KFLauncher.Models
         public void EnableWatcher()
         {
             // TODO: struggles with file access
-            this.watcher = new FileSystemWatcher(this.config.Config.GamePath + "\\System\\");
+            this.watcher = new FileSystemWatcher(this.config.GamePath + "\\System\\");
 
             watcher.NotifyFilter = NotifyFilters.Attributes
                                  | NotifyFilters.CreationTime
@@ -112,7 +112,7 @@ namespace KFLauncher.Models
         public void ApplyAllFixes()
         {
             // TODO: investigate best values (networking specifically seems meh?)
-            if (this.config.Config.DisableCache)
+            if (this.config.DisableCache)
             {
                 this.FixCacheDisable();
             }
@@ -120,20 +120,20 @@ namespace KFLauncher.Models
             {
                 this.FixCacheEnable();
             }
-            if (this.config.Config.UnlockFramerate)
+            if (this.config.UnlockFramerate)
             {
                 this.FixFPSLock();
                 this.FixNetspeed();
             }
-            if (this.config.Config.OptimizePerformance)
+            if (this.config.OptimizePerformance)
             {
                 this.FixPerformance();
             }
-            if (this.config.Config.FixMouseInput)
+            if (this.config.FixMouseInput)
             {
                 this.FixMouseLag();
             }
-            if (this.config.Config.IncreaseCacheLimit)
+            if (this.config.IncreaseCacheLimit)
             {
                 this.FixCacheSizeEnable();
             }
@@ -141,7 +141,7 @@ namespace KFLauncher.Models
             {
                 this.FixCacheSizeDisable();
             }
-            if (this.config.Config.DisableMovies)
+            if (this.config.DisableMovies)
             {
                 this.FixMoviesDisable();
             }
@@ -149,11 +149,11 @@ namespace KFLauncher.Models
             {
                 this.FixMoviesEnable();
             }
-            if (this.config.Config.DisableMusic)
+            if (this.config.DisableMusic)
             {
                 this.FixMusic();
             }
-            if (this.config.Config.SkipIntro)
+            if (this.config.SkipIntro)
             {
                 this.FixIntroDisable();
             }
@@ -161,7 +161,7 @@ namespace KFLauncher.Models
             {
                 this.FixIntroEnable();
             }
-            if (this.config.Config.QuickHeal)
+            if (this.config.QuickHeal)
             {
                 this.FixQuickHealEnable();
             }
@@ -172,32 +172,31 @@ namespace KFLauncher.Models
         }
         public void SetRecommended()
         {
-            this.config.Config.DisableCache = false;
-            this.config.Config.OptimizePerformance = true;
-            this.config.Config.DisableMusic = false;
-            this.config.Config.SkipIntro = true;
-            this.config.Config.IncreaseCacheLimit = true;
-            this.config.Config.UnlockFramerate = true;
-            this.config.Config.FixMouseInput = true;
-            this.config.Config.DisableMovies = false;
-            this.config.WriteConfig();
+            this.config.DisableCache = false;
+            this.config.OptimizePerformance = true;
+            this.config.DisableMusic = false;
+            this.config.SkipIntro = true;
+            this.config.IncreaseCacheLimit = true;
+            this.config.UnlockFramerate = true;
+            this.config.FixMouseInput = true;
+            this.config.DisableMovies = false;
         }
 
         void FixMoviesDisable()
         {
-            if (Directory.Exists(this.config.Config.GamePath + "\\Movies"))
+            if (Directory.Exists(this.config.GamePath + "\\Movies"))
             {
                 Debug.WriteLine("Enabling movies");
-                Directory.Move(this.config.Config.GamePath + "\\Movies", this.config.Config.GamePath + "\\_Movies");
+                Directory.Move(this.config.GamePath + "\\Movies", this.config.GamePath + "\\_Movies");
             }
         }
 
         void FixMoviesEnable()
         {
-            if (Directory.Exists(this.config.Config.GamePath + "\\_Movies"))
+            if (Directory.Exists(this.config.GamePath + "\\_Movies"))
             {
                 Debug.WriteLine("Disabling movies");
-                Directory.Move(this.config.Config.GamePath + "\\_Movies", this.config.Config.GamePath + "\\Movies");
+                Directory.Move(this.config.GamePath + "\\_Movies", this.config.GamePath + "\\Movies");
             }
         }
 

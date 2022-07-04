@@ -14,29 +14,24 @@ namespace KFLauncher.Models
     {
         private readonly string appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData) + "\\KFLauncher\\";
         private readonly string configFileName = "config.json";
-        public JsonConfig Config = new();
         
         public InternalConfig()
         {
             // create the KFLauncher dir in appdata if it doesn't exist
             Directory.CreateDirectory(appDataPath);
-
-            // read in the json config file (replaces default values)
-            this.ReadConfig();
-            this.WriteConfig();
         }
 
-        public void ReadConfig()
+        public JsonConfig ReadConfig(JsonConfig j)
         {
             // read json config
             JObject? jsonFile = ReadJsonFile(this.GetAppFilePath(this.configFileName));
             if (jsonFile is null)
             {
-                return;
+                return j;
             }
 
             // merge with current config
-            JObject jsonConfig = JObject.Parse(JsonConvert.SerializeObject(this.Config));
+            JObject jsonConfig = JObject.Parse(JsonConvert.SerializeObject(j));
             jsonConfig = this.MergeJson(jsonConfig, jsonFile);
             string json = jsonConfig.ToString();
 
@@ -46,16 +41,18 @@ namespace KFLauncher.Models
                 JsonConfig? c = JsonConvert.DeserializeObject<JsonConfig>(json);
                 if (c is not null)
                 {
-                    this.Config = c;
+                    return c;
                 }
             }
+
+            return j;
         }
 
-        public void WriteConfig()
+        public void WriteConfig(JsonConfig j)
         {
             // merge configs first
             JObject? jsonFile = ReadJsonFile(this.GetAppFilePath(this.configFileName));
-            JObject jsonConfig = JObject.Parse(JsonConvert.SerializeObject(this.Config));
+            JObject jsonConfig = JObject.Parse(JsonConvert.SerializeObject(j));
             if (jsonFile is not null)
             {
                 jsonConfig = this.MergeJson(jsonFile, jsonConfig);
@@ -115,33 +112,6 @@ namespace KFLauncher.Models
         private string GetAppFilePath(string filePath)
         {
             return this.appDataPath + filePath;
-        }
-
-        public class JsonConfig
-        {
-            // TODO: config for other options and patches
-            private string _gamePath = String.Empty;
-            public string GamePath
-            {
-                get
-                {
-                    return this._gamePath;
-                }
-                set
-                {
-                    this._gamePath = value;
-                    this._gamePath = this._gamePath.EndsWith(@"\\") ? this._gamePath.Substring(0, this._gamePath.Length - 2) : this._gamePath;
-                }
-            }
-            public bool DisableCache = false;
-            public bool OptimizePerformance = true;
-            public bool DisableMusic = false;
-            public bool SkipIntro = true;
-            public bool IncreaseCacheLimit = true;
-            public bool UnlockFramerate = true;
-            public bool FixMouseInput = true;
-            public bool DisableMovies = false;
-            public bool QuickHeal = true;
         }
     }
 }
