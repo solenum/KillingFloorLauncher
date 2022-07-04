@@ -8,7 +8,8 @@
         Icon="/Assets/Logo.png"
         Title="KFLauncher"
 	    SizeToContent="WidthAndHeight"
-		CanResize="False">
+		CanResize="False"
+		MaxWidth="550">
 
     <Design.DataContext>
         <vm:MainWindowViewModel/>
@@ -72,9 +73,14 @@
 		</Grid>
 
 		<!-- Detect config button -->
-		<StackPanel Margin="0" Orientation="Horizontal" HorizontalAlignment="Center">
+		<StackPanel Margin="32 0" Orientation="Horizontal" HorizontalAlignment="Center">
 			<Button Margin="8" Command="{Binding DetectConfig}" Content="Detect game path" Width="200" Padding="8" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"  HorizontalAlignment="Center"/>
 			<Button Margin="8" Command="{Binding SetRecommended}" Content="Use recommended" Width="200" Padding="8" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"  HorizontalAlignment="Center"/>
+		</StackPanel>
+
+		<!-- Restore config button -->
+		<StackPanel Margin="32 0" Orientation="Horizontal" HorizontalAlignment="Center">
+			<Button Margin="8" Command="{Binding RestoreConfig}" Content="Restore original configuration files" Width="420" Padding="8" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"  HorizontalAlignment="Center"/>
 		</StackPanel>
 
 		<!-- Checkboxes -->
@@ -85,18 +91,40 @@
 			</Grid.ColumnDefinitions>
 
 			<StackPanel Grid.Column="0" Margin="16 0" HorizontalAlignment="Center">
-				<CheckBox IsChecked="{Binding config.DisableCache}">Disable cache (Can cause stutters)</CheckBox>
-				<CheckBox IsChecked="{Binding config.OptimizePerformance}">Optimize performance</CheckBox>
-				<CheckBox IsChecked="{Binding config.DisableMusic}">Disable music</CheckBox>
-				<CheckBox IsChecked="{Binding config.SkipIntro}">Skip intro</CheckBox>
-				<CheckBox IsChecked="{Binding config.QuickHeal}">Bind Q quickheal</CheckBox>
+				<CheckBox IsChecked="{Binding Config.DisableCache}">Disable cache (Can cause stutters)</CheckBox>
+				<CheckBox IsChecked="{Binding Config.OptimizePerformance}">Optimize performance</CheckBox>
+				<CheckBox IsChecked="{Binding Config.DisableMusic}">Disable music</CheckBox>
+				<CheckBox IsChecked="{Binding Config.SkipIntro}">Skip intro</CheckBox>
+				<CheckBox IsChecked="{Binding Config.QuickHeal}">Bind Q quickheal</CheckBox>
 			</StackPanel>
 
 			<StackPanel Grid.Column="1" Margin="16 0" HorizontalAlignment="Center">
-				<CheckBox IsChecked="{Binding config.IncreaseCacheLimit}">Increase cache limit</CheckBox>
-				<CheckBox IsChecked="{Binding config.UnlockFramerate}">Unlock framerate</CheckBox>
-				<CheckBox IsChecked="{Binding config.FixMouseInput}">Fix mouse input</CheckBox>
-				<CheckBox IsChecked="{Binding config.DisableMovies}">Disable movies</CheckBox>
+				<CheckBox IsChecked="{Binding Config.IncreaseCacheLimit}">Increase cache limit</CheckBox>
+				<CheckBox IsChecked="{Binding Config.UnlockFramerate}">Unlock framerate</CheckBox>
+				<CheckBox IsChecked="{Binding Config.FixMouseInput}">Fix mouse input</CheckBox>
+				<CheckBox IsChecked="{Binding Config.DisableMovies}">Disable movies</CheckBox>
+				<CheckBox IsChecked="{Binding Config.SetResolution}">Override resolution</CheckBox>
+			</StackPanel>
+		</Grid>
+		
+		<!-- Screen resolution -->
+		<Grid Margin="0" HorizontalAlignment="Center">
+			<Grid.ColumnDefinitions>
+				<ColumnDefinition Width="*"/>
+				<ColumnDefinition Width="1*"/>
+				<ColumnDefinition Width="*"/>
+			</Grid.ColumnDefinitions>
+			
+			<StackPanel Grid.Column="0" Margin="0" IsEnabled="{Binding Config.SetResolution}">
+				<TextBox Watermark="Window width" Text="{Binding Config.ResX}"/>
+			</StackPanel>
+			
+			<StackPanel Grid.Column="1" Margin="8 0" VerticalAlignment="Center">
+				<TextBlock>X</TextBlock>
+			</StackPanel>
+			
+			<StackPanel Grid.Column="2" Margin="0" IsEnabled="{Binding Config.SetResolution}">
+				<TextBox Watermark="Window height" Text="{Binding Config.ResY}"/>
 			</StackPanel>
 		</Grid>
 
@@ -108,11 +136,11 @@
 			</Grid.ColumnDefinitions>
 			
 			<StackPanel Grid.Column="0">
-				<TextBox Classes="Square" Height="32" Watermark="Install Directory (usually steamapps\common\KillingFloor)" Text="{Binding config.GamePath}"/>
+				<TextBox Classes="Square" Width="400" Height="32" Watermark="Install Directory (usually steamapps\common\KillingFloor)" Text="{Binding Config.GamePath}"/>
 			</StackPanel>
 
 			<StackPanel HorizontalAlignment="Center" Grid.Column="1">
-				<Button Classes="Square" Content="Browse" Height="32" Command="{Binding FindGameFolder}"/>
+				<Button Classes="Square" Content="Browse" Height="32" Command="{Binding OpenFinder}"/>
 			</StackPanel>
 		</Grid>
 

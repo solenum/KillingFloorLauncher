@@ -1,4 +1,7 @@
-﻿using ReactiveUI.Fody.Helpers;
+﻿using KFLauncher.ViewModels;
+using Newtonsoft.Json;
+using ReactiveUI;
+using ReactiveUI.Fody.Helpers;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -7,7 +10,8 @@ using System.Threading.Tasks;
 
 namespace KFLauncher.Models
 {
-    public class JsonConfig
+    [JsonObject(MemberSerialization.OptOut)]
+    public class JsonConfig : ReactiveObject
     {
         // TODO: config for other options and patches
         private string _gamePath = String.Empty;
@@ -48,8 +52,20 @@ namespace KFLauncher.Models
 
         [Reactive]
         public bool DisableMovies { get; set; } = false;
-
+        
         [Reactive]
         public bool QuickHeal { get; set; } = true;
+
+        [Reactive]
+        public bool SetResolution { get; set; } = false;
+
+        [Reactive]
+        public string ResX { get; set; } = "1920";
+
+        [Reactive]
+        public string ResY { get; set; } = "1080";
+
+        [Reactive]
+        public bool FirstLaunch { get; set; } = true;
     }
 }

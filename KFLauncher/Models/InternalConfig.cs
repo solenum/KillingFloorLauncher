@@ -98,6 +98,31 @@ namespace KFLauncher.Models
             return null;
         }
 
+        public void WriteFile(string name, string data)
+        {
+            File.WriteAllText(this.GetAppFilePath(name), data);
+        }
+
+        public bool AppFileExists(string name)
+        {
+            if (File.Exists(this.GetAppFilePath(name)))
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        public string ReadFile(string name)
+        {
+            if (File.Exists(this.GetAppFilePath(name)))
+            {
+                return File.ReadAllText(this.GetAppFilePath(name));
+            }
+
+            return string.Empty;
+        }
+
         private JObject MergeJson(JObject a, JObject b)
         {
             // merge, replacing A with B
