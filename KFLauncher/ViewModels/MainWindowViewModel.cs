@@ -114,7 +114,6 @@ namespace KFLauncher.ViewModels
             if (kf.Length > 100)
             {
                 Debug.WriteLine("Restoring KillingFloor.ini");
-                Debug.WriteLine(kf);
                 this.kfConfig.KillingFloorIni = kf;
             }
             if (usr.Length > 100)

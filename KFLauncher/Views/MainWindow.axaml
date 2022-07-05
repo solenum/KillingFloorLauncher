@@ -3,13 +3,14 @@
         xmlns:vm="using:KFLauncher.ViewModels"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        mc:Ignorable="d"
+        mc:Ignorable="d" d:DesignWidth="550" d:DesignHeight="690"
         x:Class="KFLauncher.Views.MainWindow"
-        Icon="/Assets/Logo.png"
+        Icon="/Assets/Icon.ico"
         Title="KFLauncher"
-	    SizeToContent="WidthAndHeight"
 		CanResize="False"
-		MaxWidth="550">
+		MaxWidth="550" MaxHeight="690"
+		Width="550" Height="690">
+	<!--SizeToContent="WidthAndHeight"-->
 
     <Design.DataContext>
         <vm:MainWindowViewModel/>
@@ -66,32 +67,30 @@
 		</Style>
 	</Window.Styles>
 	
-	<StackPanel Orientation="Vertical" Margin="0 0">
+	<StackPanel Orientation="Vertical" Margin="0 0" HorizontalAlignment="Center">
 		<!-- Header image -->
-		<Grid Margin="0 0 0 32">
-			<Image Source="/Assets/Logo.png" Width="550"/>
+		<Grid Margin="0 0 0 16">
+			<Image Source="/Assets/Logo.png" Width="600"/>
 		</Grid>
 
-		<!-- Detect config button -->
-		<StackPanel Margin="32 0" Orientation="Horizontal" HorizontalAlignment="Center">
+		<StackPanel Margin="0" Orientation="Horizontal" HorizontalAlignment="Center">
 			<Button Margin="8" Command="{Binding DetectConfig}" Content="Detect game path" Width="200" Padding="8" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"  HorizontalAlignment="Center"/>
 			<Button Margin="8" Command="{Binding SetRecommended}" Content="Use recommended" Width="200" Padding="8" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"  HorizontalAlignment="Center"/>
 		</StackPanel>
 
-		<!-- Restore config button -->
-		<StackPanel Margin="32 0" Orientation="Horizontal" HorizontalAlignment="Center">
+		<StackPanel Margin="0" Orientation="Horizontal" HorizontalAlignment="Center">
 			<Button Margin="8" Command="{Binding RestoreConfig}" Content="Restore original configuration files" Width="420" Padding="8" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"  HorizontalAlignment="Center"/>
 		</StackPanel>
 
 		<!-- Checkboxes -->
-		<Grid Margin="0 32" HorizontalAlignment="Center">
+		<Grid Margin="0 16" HorizontalAlignment="Center">
 			<Grid.ColumnDefinitions>
 				<ColumnDefinition Width="1*"/>
 				<ColumnDefinition Width="1*"/>
 			</Grid.ColumnDefinitions>
 
 			<StackPanel Grid.Column="0" Margin="16 0" HorizontalAlignment="Center">
-				<CheckBox IsChecked="{Binding Config.DisableCache}">Disable cache (Can cause stutters)</CheckBox>
+				<CheckBox IsChecked="{Binding Config.DisableCache}">Disable cache (Causes stutters)</CheckBox>
 				<CheckBox IsChecked="{Binding Config.OptimizePerformance}">Optimize performance</CheckBox>
 				<CheckBox IsChecked="{Binding Config.DisableMusic}">Disable music</CheckBox>
 				<CheckBox IsChecked="{Binding Config.SkipIntro}">Skip intro</CheckBox>
@@ -129,7 +128,7 @@
 		</Grid>
 
 		<!-- Config path -->
-		<Grid Margin="0 32" HorizontalAlignment="Center">
+		<Grid Margin="0 16" HorizontalAlignment="Center">
 			<Grid.ColumnDefinitions>
 				<ColumnDefinition Width="2*"/>
 				<ColumnDefinition Width="*"/>
@@ -145,6 +144,6 @@
 		</Grid>
 
 		<!-- Launch game button -->
-		<Button Margin="0 16 0 0" Classes="Launch" Command="{Binding StartGame}" Content="Launch Killing Floor" Width="500" Height="64" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"  HorizontalAlignment="Center" VerticalAlignment="Bottom"/>
+		<Button Margin="0 16 0 0" Classes="Launch" Command="{Binding StartGame}" Content="Launch Killing Floor" Width="550" Height="64" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"  HorizontalAlignment="Center" VerticalAlignment="Bottom"/>
 	</StackPanel>
 </Window>
