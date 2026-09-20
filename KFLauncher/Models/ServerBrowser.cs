@@ -72,17 +72,35 @@ namespace KFLauncher.Models
         public const int AppId = 1250;
         public const string ApiKeyUrl = "https://steamcommunity.com/dev/apikey";
 
+        /// <summary>
+        /// Point this at a host running tools/kf-serverlist.sh and everyone who downloads the
+        /// launcher gets the server list without an api key of their own.  Empty ships the api key
+        /// route, see the README.
+        /// </summary>
+        public const string DefaultListUrl = "";
+
         private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(20) };
         private static readonly byte[] InfoRequest = [0xFF, 0xFF, 0xFF, 0xFF, 0x54, .. Encoding.ASCII.GetBytes("Source Engine Query\0")];
 
         /// <summary>Every KF server steam knows about.  Throws <see cref="HttpRequestException"/> on a bad key.</summary>
-        public static async Task<List<ServerInfo>> FetchListAsync(string apiKey, CancellationToken ct = default)
+        public static async Task<List<ServerInfo>> FetchListAsync(string listUrl, string apiKey, CancellationToken ct = default)
         {
-            string filter = Uri.EscapeDataString($"\\appid\\{AppId}");
-            string url = $"https://api.steampowered.com/IGameServersService/GetServerList/v1/?key={Uri.EscapeDataString(apiKey)}&limit=5000&filter={filter}";
-            string json = await Http.GetStringAsync(url, ct);
+            string json = await Http.GetStringAsync(BuildListUrl(listUrl, apiKey), ct);
 
             return ParseServerList(json);
+        }
+
+        /// <summary>A relay serves steams reply unchanged, so both routes parse the same.</summary>
+        internal static string BuildListUrl(string listUrl, string apiKey)
+        {
+            if (listUrl.Length > 0)
+            {
+                return listUrl;
+            }
+
+            string filter = Uri.EscapeDataString($"\\appid\\{AppId}");
+
+            return $"https://api.steampowered.com/IGameServersService/GetServerList/v1/?key={Uri.EscapeDataString(apiKey)}&limit=5000&filter={filter}";
         }
 
         internal static List<ServerInfo> ParseServerList(string json)

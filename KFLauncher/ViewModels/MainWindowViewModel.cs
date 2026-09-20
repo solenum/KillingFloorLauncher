@@ -28,7 +28,8 @@ namespace KFLauncher.ViewModels
         [ObservableProperty]
         private IReadOnlyList<ServerInfo> servers = [];
 
-        public bool NeedsApiKey => this.Config.SteamApiKey.Length == 0;
+        /// <summary>Nothing to ask steam with: no relay to read and no key of our own.</summary>
+        public bool NeedsServerSource => this.Config.ServerListUrl.Length == 0 && this.Config.SteamApiKey.Length == 0;
 
         [ObservableProperty]
         private string status = string.Empty;
@@ -75,13 +76,13 @@ namespace KFLauncher.ViewModels
             this.Config.PropertyChanged += (_, e) =>
             {
                 InternalConfig.WriteConfig(this.Config);
-                if (e.PropertyName == nameof(JsonConfig.SteamApiKey))
+                if (e.PropertyName is nameof(JsonConfig.SteamApiKey) or nameof(JsonConfig.ServerListUrl))
                 {
-                    this.OnPropertyChanged(nameof(this.NeedsApiKey));
+                    this.OnPropertyChanged(nameof(this.NeedsServerSource));
                 }
             };
 
-            if (!this.NeedsApiKey)
+            if (!this.NeedsServerSource)
             {
                 _ = this.RefreshServersCommand.ExecuteAsync(null);
             }
@@ -91,9 +92,9 @@ namespace KFLauncher.ViewModels
         [RelayCommand]
         private async Task RefreshServers()
         {
-            if (this.Config.SteamApiKey.Length == 0)
+            if (this.NeedsServerSource)
             {
-                this.Status = "Paste a steam web api key to see the server list";
+                this.Status = "Set a server list url, or paste a steam web api key, to see servers";
                 return;
             }
 
@@ -106,7 +107,7 @@ namespace KFLauncher.ViewModels
 
             try
             {
-                List<ServerInfo> servers = await ServerBrowser.FetchListAsync(this.Config.SteamApiKey, cts.Token);
+                List<ServerInfo> servers = await ServerBrowser.FetchListAsync(this.Config.ServerListUrl, this.Config.SteamApiKey, cts.Token);
                 this.allServers.Clear();
                 this.allServers.AddRange(servers);
                 this.ApplyFilter();
@@ -147,9 +148,13 @@ namespace KFLauncher.ViewModels
             }
             catch (HttpRequestException ex)
             {
-                this.Status = ex.StatusCode == HttpStatusCode.Forbidden
-                    ? "Steam rejected that api key"
-                    : $"Could not reach the steam api ({ex.StatusCode})";
+                bool relay = this.Config.ServerListUrl.Length > 0;
+                this.Status = ex.StatusCode switch
+                {
+                    HttpStatusCode.Forbidden when !relay => "Steam rejected that api key",
+                    _ when relay => $"Could not read the server list from {this.Config.ServerListUrl} ({ex.StatusCode})",
+                    _ => $"Could not reach the steam api ({ex.StatusCode})",
+                };
             }
             catch (OperationCanceledException)
             {

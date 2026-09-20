@@ -38,7 +38,30 @@ By default the launcher stays open once the game is on its way.  You can have it
 
 If Killing Floor is already running, steam has no way in: it drops launch arguments for an app it is already running, and `steam://connect` asks the server for an app id that KF servers do not report.  So in that case the launcher copies the console command to your clipboard instead, press ~ in game and paste it.
 
-The list itself comes from the steam web api, which needs a free api key tied to your steam account (valves old keyless master server no longer resolves).  Grab one from [steamcommunity.com/dev/apikey](https://steamcommunity.com/dev/apikey) and paste it into the launcher once, it is stored with the rest of your settings.  Player counts and ping are read straight from the servers themselves, no key involved.
+The list itself has to come from the steam web api, because valves old keyless master server no longer resolves.  There are two ways to feed it:
+
+* **A list url.**  One machine polls steam with one api key and serves the result, and every launcher reads that.  Nobody else needs a key.  See below.
+* **Your own api key.**  Grab one from [steamcommunity.com/dev/apikey](https://steamcommunity.com/dev/apikey) and paste it into the launcher once, it is stored with the rest of your settings.
+
+Player counts, ping and the padlock are read straight from the servers themselves over A2S either way, no key involved.
+
+## Hosting the list for everyone
+`tools/` has everything: a script that asks steam for the list and writes it out, plus a systemd timer that runs it every 30 seconds.  The file it writes is steams own reply byte for byte, so the launcher reads a relay and the api directly with the same code.
+
+```sh
+sudo install -m 755 tools/kf-serverlist.sh /usr/local/bin/
+sudo install -m 644 tools/kf-serverlist.service tools/kf-serverlist.timer /etc/systemd/system/
+
+# the key lives here and nowhere else, never in git
+printf 'STEAM_API_KEY=%s\n' "$YOUR_KEY" | sudo tee /etc/kf-serverlist.env
+sudo chmod 600 /etc/kf-serverlist.env
+
+sudo systemctl enable --now kf-serverlist.timer
+```
+
+It writes `/var/www/html/kf-servers.json` by default (`OUT=` in the env file changes that), ~160KB for the ~500 servers that are usually up.  Serve that path with whatever webserver you already run, then point launchers at `https://yourhost/kf-servers.json` in the 'Where the server list comes from' box.
+
+To make that the default for everyone who downloads a release, set `DefaultListUrl` in `KFLauncher/Models/ServerBrowser.cs` before tagging.  The launcher then just works, with the api key box as a fallback if your host is down.
 
 If the game is lacking config files or they are malformed, the tool will attempt to generate a default one (based on the default configuration the game generates for new installations), it will then inject that config and launch the game.
 

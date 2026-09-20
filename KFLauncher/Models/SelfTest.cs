@@ -29,6 +29,11 @@ namespace KFLauncher.Models
             failed += Check(servers[0].ConsoleCommand == "open 1.2.3.4:7707", $"console command uses the game port, got {servers[0].ConsoleCommand}");
             failed += Check(ServerBrowser.ParseServerList("""{"response":{}}""").Count == 0, "empty response handled");
 
+            // a relay url is used as given, otherwise we go to steam ourselves with the key
+            failed += Check(ServerBrowser.BuildListUrl("https://vps/kf-servers.json", "key") == "https://vps/kf-servers.json", "relay url wins");
+            failed += Check(ServerBrowser.BuildListUrl("", "abc123").Contains("key=abc123"), "api key url carries the key");
+            failed += Check(ServerBrowser.BuildListUrl("", "abc123").Contains("%5Cappid%5C1250"), "api key url filters on the app id");
+
             // A2S_INFO reply with the extra data field carrying the game port
             List<byte> info = [0xFF, 0xFF, 0xFF, 0xFF, 0x49, 0x11];
             Str(info, "KF Server");

@@ -52,15 +52,16 @@
             <TabItem Header="Servers">
                 <DockPanel Margin="0 8 0 0">
                     <!-- shown until a key is saved, the list comes from the steam web api -->
-                    <Border DockPanel.Dock="Top" IsVisible="{Binding NeedsApiKey}" Margin="0 0 0 10"
+                    <Border DockPanel.Dock="Top" IsVisible="{Binding NeedsServerSource}" Margin="0 0 0 10"
                             Background="#141a24" BorderBrush="#242c3a" BorderThickness="1" CornerRadius="6" Padding="12">
                         <StackPanel Spacing="8">
                             <TextBlock Foreground="#8b93a1" TextWrapping="Wrap"
-                                       Text="The server list comes from the steam web api, which needs a free key tied to your steam account. Paste it once and it is remembered."/>
-                            <Grid ColumnDefinitions="*,Auto,Auto">
-                                <TextBox Grid.Column="0" Watermark="Steam web api key" Text="{Binding Config.SteamApiKey}"/>
-                                <Button Grid.Column="1" Margin="8 0 0 0" Content="Get a key" Command="{Binding GetApiKeyCommand}"/>
-                                <Button Grid.Column="2" Margin="8 0 0 0" Classes="accent" Content="Load servers" Command="{Binding RefreshServersCommand}"/>
+                                       Text="The server list needs somewhere to come from: either a list url (a host caching the list for everyone, see the README) or a free steam web api key tied to your own account. Either one is remembered."/>
+                            <Grid ColumnDefinitions="*,Auto,Auto" RowDefinitions="Auto,Auto">
+                                <TextBox Grid.Row="0" Grid.Column="0" Watermark="Server list url" Text="{Binding Config.ServerListUrl}"/>
+                                <TextBox Grid.Row="1" Grid.Column="0" Margin="0 8 0 0" Watermark="or a steam web api key" Text="{Binding Config.SteamApiKey}"/>
+                                <Button Grid.Row="1" Grid.Column="1" Margin="8 8 0 0" Content="Get a key" Command="{Binding GetApiKeyCommand}"/>
+                                <Button Grid.Row="1" Grid.Column="2" Margin="8 8 0 0" Classes="accent" Content="Load servers" Command="{Binding RefreshServersCommand}"/>
                             </Grid>
                         </StackPanel>
                     </Border>
@@ -165,9 +166,10 @@
                         </StackPanel>
 
                         <StackPanel>
-                            <TextBlock Classes="section" Text="Steam web api key"/>
-                            <Grid ColumnDefinitions="*,Auto">
-                                <TextBox Grid.Column="0" PasswordChar="•" Watermark="Used for the server list only" Text="{Binding Config.SteamApiKey}"/>
+                            <TextBlock Classes="section" Text="Where the server list comes from"/>
+                            <TextBox Watermark="Server list url (leave empty to ask steam directly)" Text="{Binding Config.ServerListUrl}"/>
+                            <Grid Margin="0 8 0 0" ColumnDefinitions="*,Auto">
+                                <TextBox Grid.Column="0" PasswordChar="•" Watermark="Steam web api key, only used without a list url" Text="{Binding Config.SteamApiKey}"/>
                                 <Button Grid.Column="1" Margin="8 0 0 0" Width="110" Content="Get a key"
                                         HorizontalContentAlignment="Center" Command="{Binding GetApiKeyCommand}"/>
                             </Grid>

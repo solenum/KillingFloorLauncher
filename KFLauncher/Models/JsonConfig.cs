@@ -62,7 +62,11 @@ namespace KFLauncher.Models
         [ObservableProperty]
         private int afterLaunch = 0;
 
-        /// <summary>From https://steamcommunity.com/dev/apikey, needed for the server list.</summary>
+        /// <summary>A host serving a cached copy of the list, so no api key is needed.</summary>
+        [ObservableProperty]
+        private string serverListUrl = ServerBrowser.DefaultListUrl;
+
+        /// <summary>From https://steamcommunity.com/dev/apikey.  Only used without a list url.</summary>
         [ObservableProperty]
         private string steamApiKey = string.Empty;
     }
