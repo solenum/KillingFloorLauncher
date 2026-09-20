@@ -60,6 +60,14 @@ namespace KFLauncher.Models
         public string ConsoleCommand => $"open {this.Query.Address}:{this.GamePort}";
     }
 
+    /// <summary>One player on a server, from A2S_PLAYER.</summary>
+    public record PlayerInfo(string Name, int Score, TimeSpan Time)
+    {
+        public string TimeText => this.Time.TotalHours >= 1
+            ? $"{(int)this.Time.TotalHours}:{this.Time.Minutes:00}:{this.Time.Seconds:00}"
+            : $"{this.Time.Minutes}:{this.Time.Seconds:00}";
+    }
+
     /// <summary>Live values straight off a server, used to refresh a <see cref="ServerInfo"/>.</summary>
     internal record A2SInfo(string Name, string Map, int Players, int MaxPlayers, int Bots, bool Passworded, bool Vac, ushort GamePort, int Ping);
 
@@ -81,6 +89,7 @@ namespace KFLauncher.Models
 
         private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(20) };
         private static readonly byte[] InfoRequest = [0xFF, 0xFF, 0xFF, 0xFF, 0x54, .. Encoding.ASCII.GetBytes("Source Engine Query\0")];
+        private static readonly byte[] PlayerRequest = [0xFF, 0xFF, 0xFF, 0xFF, 0x55, 0xFF, 0xFF, 0xFF, 0xFF];
 
         /// <summary>Every KF server steam knows about.  Throws <see cref="HttpRequestException"/> on a bad key.</summary>
         public static async Task<List<ServerInfo>> FetchListAsync(string listUrl, string apiKey, CancellationToken ct = default)
@@ -162,6 +171,71 @@ namespace KFLauncher.Models
             {
                 return null;
             }
+        }
+
+        /// <summary>Who is on the server right now.  Null when it does not answer.</summary>
+        public static async Task<List<PlayerInfo>?> QueryPlayersAsync(IPEndPoint server, int timeoutMs = 2000, CancellationToken ct = default)
+        {
+            try
+            {
+                using UdpClient udp = new();
+                udp.Connect(server);
+
+                await udp.SendAsync(PlayerRequest, ct);
+                byte[]? reply = await ReceiveAsync(udp, timeoutMs, ct);
+
+                if (reply is { Length: >= 9 } && reply[4] == 0x41)
+                {
+                    byte[] challenged = [0xFF, 0xFF, 0xFF, 0xFF, 0x55, reply[5], reply[6], reply[7], reply[8]];
+                    await udp.SendAsync(challenged, ct);
+                    reply = await ReceiveAsync(udp, timeoutMs, ct);
+                }
+
+                return reply is null ? null : ParsePlayers(reply);
+            }
+            catch (Exception ex) when (ex is SocketException or OperationCanceledException)
+            {
+                return null;
+            }
+        }
+
+        /// <summary>A2S_PLAYER reply: a count, then index, name, score and seconds connected each.</summary>
+        internal static List<PlayerInfo>? ParsePlayers(ReadOnlySpan<byte> data)
+        {
+            if (data.Length < 6 || data[0] != 0xFF || data[4] != 0x44)
+            {
+                return null;
+            }
+
+            List<PlayerInfo> players = new();
+            int count = data[5];
+            int i = 6;
+
+            for (int player = 0; player < count; player++)
+            {
+                // the index byte is meaningless on most servers, and the count itself can lie
+                if (i + 1 >= data.Length)
+                {
+                    break;
+                }
+
+                i++;
+                string name = ReadString(data, ref i);
+                if (i + 8 > data.Length)
+                {
+                    break;
+                }
+
+                int score = BinaryPrimitives.ReadInt32LittleEndian(data.Slice(i, 4));
+                i += 4;
+                float seconds = BinaryPrimitives.ReadSingleLittleEndian(data.Slice(i, 4));
+                i += 4;
+
+                // servers have been seen sending nan and negative times
+                players.Add(new PlayerInfo(name, score, TimeSpan.FromSeconds(float.IsFinite(seconds) && seconds > 0 ? seconds : 0)));
+            }
+
+            return players;
         }
 
         /// <summary>A2S_INFO reply, see https://developer.valvesoftware.com/wiki/Server_queries </summary>

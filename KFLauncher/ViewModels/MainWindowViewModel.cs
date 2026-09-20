@@ -21,6 +21,7 @@ namespace KFLauncher.ViewModels
         private readonly KFConfig kfConfig;
         private readonly List<ServerInfo> allServers = new();
         private CancellationTokenSource? refresh;
+        private CancellationTokenSource? playerQuery;
 
         public JsonConfig Config { get; }
 
@@ -45,6 +46,15 @@ namespace KFLauncher.ViewModels
 
         [ObservableProperty]
         private bool hideFull;
+
+        [ObservableProperty]
+        private ServerInfo? selectedServer;
+
+        [ObservableProperty]
+        private IReadOnlyList<PlayerInfo> players = [];
+
+        [ObservableProperty]
+        private string playersStatus = string.Empty;
 
         public MainWindowViewModel()
         {
@@ -245,6 +255,65 @@ namespace KFLauncher.ViewModels
                 TraceLog.Error("connect", ex);
                 this.Status = $"Could not join {server.Name}: {ex.Message}";
             }
+        }
+
+        partial void OnSelectedServerChanged(ServerInfo? value) => _ = this.LoadPlayers(value);
+
+        /// <summary>Who is on the selected server, asked of the server itself.</summary>
+        private async Task LoadPlayers(ServerInfo? server)
+        {
+            SafeCancel(this.playerQuery);
+            this.playerQuery = null;
+            this.Players = [];
+
+            if (server is null)
+            {
+                this.PlayersStatus = string.Empty;
+                return;
+            }
+
+            CancellationTokenSource cts = new();
+            this.playerQuery = cts;
+            this.PlayersStatus = "Asking the server who is playing..";
+
+            List<PlayerInfo>? players;
+            try
+            {
+                players = await ServerBrowser.QueryPlayersAsync(server.Query, ct: cts.Token);
+            }
+            catch (Exception ex)
+            {
+                // nothing awaits this, so an escaping exception would just vanish
+                TraceLog.Error("player query", ex);
+                this.PlayersStatus = "Could not ask the server who is playing";
+                return;
+            }
+
+            // another row was clicked while this one was still answering
+            if (cts.IsCancellationRequested)
+            {
+                return;
+            }
+
+            this.Players = players ?? [];
+            this.PlayersStatus = players switch
+            {
+                null => "The server did not answer",
+                { Count: 0 } => "Nobody playing right now",
+                _ => $"{players.Count} playing",
+            };
+        }
+
+        [RelayCommand]
+        private async Task CopyAddress()
+        {
+            if (this.SelectedServer is null)
+            {
+                return;
+            }
+
+            await this.CopyAsync(this.SelectedServer.Address);
+            this.Status = $"Copied {this.SelectedServer.Address}";
         }
 
         partial void OnFilterChanged(string value) => this.ApplyFilter();

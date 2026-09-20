@@ -32,7 +32,7 @@ The tool will attempt to locate your games directory by crawling logical drives 
 Clicking the 'Launch Killing Floor' button will inject the config, and then start Killing Floor via the steam uri.
 
 ## Server browser
-The 'Servers' tab lists every Killing Floor server steam knows about, with live player counts, map and ping.  Password protected servers are marked with a padlock.  Hitting 'Connect' (or double clicking the row) injects your config and then hands the server to steam (`steam://connect/ip:port`), which starts the game and joins it.
+The 'Servers' tab lists every Killing Floor server steam knows about, with live player counts, map and ping.  Password protected servers are marked with a padlock.  Clicking a server opens a panel underneath with its address, a copy button and who is playing right now, names, scores and how long they have been in.  Hitting 'Connect' (or double clicking the row) injects your config and then hands the server to steam (`steam://connect/ip:port`), which starts the game and joins it.
 
 By default the launcher stays open once the game is on its way.  You can have it minimize or close instead under 'After launching' on the Launch tab, though note that minimizing stops the window being painted, and tiling window managers that keep it on screen anyway (bspwm, i3, ...) will show a stale window until you resize it, so leave it open or close it there.
 

@@ -77,27 +77,66 @@
                     <ProgressBar DockPanel.Dock="Top" Margin="0 0 0 8" Height="2" IsIndeterminate="True"
                                  IsVisible="{Binding IsRefreshing}"/>
 
-                    <DataGrid ItemsSource="{Binding Servers}" IsReadOnly="True" CanUserSortColumns="True"
-                              SelectionMode="Single" GridLinesVisibility="Horizontal"
-                              DoubleTapped="OnServerDoubleTapped">
-                        <DataGrid.Columns>
-                            <DataGridTextColumn Header="" Binding="{Binding Locked}" SortMemberPath="Passworded" Width="32"/>
-                            <DataGridTextColumn Header="Server" Binding="{Binding Name}" Width="*"/>
-                            <DataGridTextColumn Header="Map" Binding="{Binding Map}" Width="190"/>
-                            <DataGridTextColumn Header="Players" Binding="{Binding Slots}" SortMemberPath="Players" Width="90"/>
-                            <DataGridTextColumn Header="Ping" Binding="{Binding PingText}" SortMemberPath="Ping" Width="70"/>
-                            <DataGridTemplateColumn Header="" Width="120">
-                                <DataGridTemplateColumn.CellTemplate>
-                                    <DataTemplate>
-                                        <Button Content="Connect" Classes="accent" Margin="4 3"
-                                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
-                                                Command="{Binding $parent[DataGrid].DataContext.ConnectCommand}"
-                                                CommandParameter="{Binding}"/>
-                                    </DataTemplate>
-                                </DataGridTemplateColumn.CellTemplate>
-                            </DataGridTemplateColumn>
-                        </DataGrid.Columns>
-                    </DataGrid>
+                    <Grid RowDefinitions="4*,Auto">
+                        <DataGrid Grid.Row="0" ItemsSource="{Binding Servers}" IsReadOnly="True" CanUserSortColumns="True"
+                                  SelectionMode="Single" GridLinesVisibility="Horizontal"
+                                  SelectedItem="{Binding SelectedServer}"
+                                  DoubleTapped="OnServerDoubleTapped">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="" Binding="{Binding Locked}" SortMemberPath="Passworded" Width="32"/>
+                                <DataGridTextColumn Header="Server" Binding="{Binding Name}" Width="*"/>
+                                <DataGridTextColumn Header="Map" Binding="{Binding Map}" Width="190"/>
+                                <DataGridTextColumn Header="Players" Binding="{Binding Slots}" SortMemberPath="Players" Width="90"/>
+                                <DataGridTextColumn Header="Ping" Binding="{Binding PingText}" SortMemberPath="Ping" Width="70"/>
+                                <DataGridTemplateColumn Header="" Width="120">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <Button Content="Connect" Classes="accent" Margin="4 3"
+                                                    HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                                    Command="{Binding $parent[DataGrid].DataContext.ConnectCommand}"
+                                                    CommandParameter="{Binding}"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                            </DataGrid.Columns>
+                        </DataGrid>
+
+                        <!-- details for the selected row, asked of the server itself -->
+                        <Border Grid.Row="1" Margin="0 10 0 0" Padding="12" CornerRadius="6"
+                                Background="#141a24" BorderBrush="#242c3a" BorderThickness="1"
+                                IsVisible="{Binding SelectedServer, Converter={x:Static ObjectConverters.IsNotNull}}">
+                            <Grid ColumnDefinitions="320,*">
+                                <StackPanel Grid.Column="0" Margin="0 0 16 0" Spacing="8">
+                                    <TextBlock Text="{Binding SelectedServer.Name}" FontWeight="SemiBold"
+                                               TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis"/>
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <TextBlock Text="{Binding SelectedServer.Address}" Foreground="#8b93a1" VerticalAlignment="Center"/>
+                                        <Button Content="Copy" Padding="10 2" Command="{Binding CopyAddressCommand}"/>
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal" Spacing="12">
+                                        <TextBlock Text="{Binding SelectedServer.Map}" Foreground="#8b93a1"/>
+                                        <TextBlock Text="{Binding SelectedServer.Slots}" Foreground="#8b93a1"/>
+                                        <TextBlock Text="{Binding SelectedServer.PingText}" Foreground="#8b93a1"/>
+                                    </StackPanel>
+                                    <Button Classes="accent" Content="Connect" Padding="20 4" HorizontalAlignment="Left"
+                                            Command="{Binding ConnectCommand}" CommandParameter="{Binding SelectedServer}"/>
+                                </StackPanel>
+
+                                <DockPanel Grid.Column="1">
+                                    <TextBlock DockPanel.Dock="Top" Margin="0 0 0 6" Foreground="#8b93a1"
+                                               Text="{Binding PlayersStatus}"/>
+                                    <DataGrid ItemsSource="{Binding Players}" IsReadOnly="True" CanUserSortColumns="True"
+                                              MinHeight="60" MaxHeight="150" GridLinesVisibility="None">
+                                        <DataGrid.Columns>
+                                            <DataGridTextColumn Header="Player" Binding="{Binding Name}" Width="*"/>
+                                            <DataGridTextColumn Header="Score" Binding="{Binding Score}" Width="90"/>
+                                            <DataGridTextColumn Header="Time" Binding="{Binding TimeText}" SortMemberPath="Time" Width="90"/>
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+                                </DockPanel>
+                            </Grid>
+                        </Border>
+                    </Grid>
                 </DockPanel>
             </TabItem>
 

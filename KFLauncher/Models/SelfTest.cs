@@ -86,6 +86,23 @@ namespace KFLauncher.Models
             failed += Check(!KFConfig.IsGameProcess("KillingFloorLau"), "our own launcher is not the game");
             failed += Check(!KFConfig.IsGameProcess("KFGame"), "killing floor 2 is not the game");
 
+            // A2S_PLAYER reply
+            List<byte> players = [0xFF, 0xFF, 0xFF, 0xFF, 0x44, 2, 0];
+            Str(players, "Viking");
+            players.AddRange([0xDE, 0x0A, 0, 0]);                       // score 2782
+            players.AddRange(BitConverter.GetBytes(1359.0f));           // 22:39 connected
+            players.Add(1);
+            Str(players, "hdsee");
+            players.AddRange([0xC6, 0x03, 0, 0]);                       // score 966
+            players.AddRange(BitConverter.GetBytes(float.NaN));         // servers really do send this
+
+            List<PlayerInfo>? parsedPlayers = ServerBrowser.ParsePlayers(players.ToArray());
+            failed += Check(parsedPlayers?.Count == 2, $"both players parsed, got {parsedPlayers?.Count}");
+            failed += Check(parsedPlayers?[0].Name == "Viking" && parsedPlayers[0].Score == 2782, "name and score parsed");
+            failed += Check(parsedPlayers?[0].TimeText == "22:39", $"time formatted, got {parsedPlayers?[0].TimeText}");
+            failed += Check(parsedPlayers?[1].TimeText == "0:00", "a nan time does not blow up");
+            failed += Check(ServerBrowser.ParsePlayers([0xFF, 0xFF, 0xFF, 0xFF, 0x44, 9, 0]) is { Count: 0 }, "a lying count does not run off the end");
+
             // ini patching only touches whole keys at the start of a line
             string ini = "[Engine]\r\nMaxClientFrameRate=60\r\nQuality=3\r\nQ=QuickHeal\r\nMouseSamplingTime = 0.05\r\n";
             failed += Check(KFConfig.PatchIni(ini, "MaxClientFrameRate", "200").Contains("MaxClientFrameRate=200"), "key patched");
