@@ -1,12 +1,10 @@
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:local="using:KFLauncher"
-             x:Class="KFLauncher.App">
-    <Application.DataTemplates>
-        <local:ViewLocator/>
-    </Application.DataTemplates>
-
+             xmlns:semi="https://irihi.tech/shared"
+             x:Class="KFLauncher.App"
+             RequestedThemeVariant="Dark">
     <Application.Styles>
-        <FluentTheme Mode="Dark"/>
+        <StyleInclude Source="avares://Semi.Avalonia/Index.axaml"/>
+        <StyleInclude Source="avares://Semi.Avalonia.DataGrid/Index.axaml"/>
     </Application.Styles>
 </Application>

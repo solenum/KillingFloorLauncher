@@ -2,7 +2,9 @@
 
 ![Banner logo](https://i.imgur.com/7mNKO7X.png)
 
-[Download latest release (Windows only, for now)](https://github.com/solenum/KillingFloorLauncher/releases/latest/download/KFLauncher.exe)
+[Download for Windows](https://github.com/solenum/KillingFloorLauncher/releases/latest/download/KFLauncher-windows-x64.exe) · [Download for Linux](https://github.com/solenum/KillingFloorLauncher/releases/latest/download/KFLauncher-linux-x64)
+
+Both are single self-contained files, no runtime to install: download, run it (on linux `chmod +x` first).  macOS has to be built from source for now, `dotnet build KFLauncher/KFLauncher.csproj` with the .NET 10 SDK.
 
 # What is this?
 This is a standalone-launcher for Killing Floor (1).
@@ -11,6 +13,10 @@ The goal of this launcher is to inject the games configuration files with some s
 * **Uncapped frame-rate**
 * **Improved net speed / performance**
 * **Better mouse input**
+* **Field of view** (the stock 85 is cropped rather than widened on a widescreen monitor, and the game resets it at trader time, so the launcher sets it in the config *and* chains it onto the forward bind)
+* **Mouse locked to the game window** under proton, so the cursor cannot wander onto a second monitor mid-wave
+
+It also has a server browser, so you can find a server and jump straight into it without going through the in-game menus.
 
 Most of these improvements will be noticable right away.  The one caveat to this is the capped frame-rate in multiplayer, **which is uncapped as soon as you press any mouse button.**
 
@@ -25,6 +31,38 @@ The tool will attempt to locate your games directory by crawling logical drives 
 
 Clicking the 'Launch Killing Floor' button will inject the config, and then start Killing Floor via the steam uri.
 
+## Server browser
+The 'Servers' tab lists every Killing Floor server steam knows about, with live player counts, map and ping.  Password protected servers are marked with a padlock.  Clicking a server opens a panel underneath with its address, a copy button and who is playing right now, names, scores and how long they have been in.  Hitting 'Connect' (or double clicking the row) injects your config and then hands the server to steam (`steam://connect/ip:port`), which starts the game and joins it.
+
+By default the launcher stays open once the game is on its way.  You can have it minimize or close instead under 'After launching' on the Launch tab, though note that minimizing stops the window being painted, and tiling window managers that keep it on screen anyway (bspwm, i3, ...) will show a stale window until you resize it, so leave it open or close it there.
+
+If Killing Floor is already running, steam has no way in: it drops launch arguments for an app it is already running, and `steam://connect` asks the server for an app id that KF servers do not report.  So in that case the launcher copies the console command to your clipboard instead, press ~ in game and paste it.
+
+The list itself has to come from the steam web api, because valves old keyless master server no longer resolves.  There are two ways to feed it:
+
+* **A list url.**  One machine polls steam with one api key and serves the result, and every launcher reads that.  Nobody else needs a key.  Releases ship pointed at `https://everparser.com/kf-servers.json`, so out of the box there is nothing to set up.
+* **Your own api key.**  Grab one from [steamcommunity.com/dev/apikey](https://steamcommunity.com/dev/apikey) and paste it into the launcher once, it is stored with the rest of your settings.
+
+Player counts, ping and the padlock are read straight from the servers themselves over A2S either way, no key involved.
+
+## Hosting the list for everyone
+`tools/` has everything: a script that asks steam for the list and writes it out, plus a systemd timer that runs it every 30 seconds.  The file it writes is steams own reply byte for byte, so the launcher reads a relay and the api directly with the same code.
+
+```sh
+sudo install -m 755 tools/kf-serverlist.sh /usr/local/bin/
+sudo install -m 644 tools/kf-serverlist.service tools/kf-serverlist.timer /etc/systemd/system/
+
+# the key lives here and nowhere else, never in git
+printf 'STEAM_API_KEY=%s\n' "$YOUR_KEY" | sudo tee /etc/kf-serverlist.env
+sudo chmod 600 /etc/kf-serverlist.env
+
+sudo systemctl enable --now kf-serverlist.timer
+```
+
+It writes `/var/www/html/kf-servers.json` by default (`OUT=` in the env file changes that), ~160KB for the ~500 servers that are usually up.  Serve that path with whatever webserver you already run, then point launchers at `https://yourhost/kf-servers.json` in the 'Where the server list comes from' box.
+
+To make that the default for everyone who downloads a release, set `DefaultListUrl` in `KFLauncher/Models/ServerBrowser.cs` before tagging.  The launcher then just works, with the api key box as a fallback if your host is down.
+
 If the game is lacking config files or they are malformed, the tool will attempt to generate a default one (based on the default configuration the game generates for new installations), it will then inject that config and launch the game.
 
 ## Why did you make this
@@ -38,7 +76,8 @@ This tool is very early-stage and only does some basic QoL changes.  While it is
 Future plans include some of the following:
 * ~~The ability to select what patches you want this tool to apply~~
 * The ability to modify most/all in-game settings from the launcher
-* An embeded server-browser, with favorites, ability to connect from launcher, etc.
+* ~~An embeded server-browser, with ability to connect from launcher~~ (favorites and a password prompt still to come)
+* Joining a server without closing the game first, if steam ever grows a way in
 * ~~Make less ugly~~
 * Fix the many bugs that exist
 

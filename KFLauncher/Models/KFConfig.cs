@@ -1,92 +1,35 @@
-﻿using Avalonia.Controls;
-using Avalonia.Controls.ApplicationLifetimes;
-using KFLauncher.Views;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 
 namespace KFLauncher.Models
 {
     internal class KFConfig
     {
-        private JsonConfig config;
-        private readonly string KillingFloorIniPath = "\\System\\KillingFloor.ini";
-        private readonly string UserIniPath = "\\System\\User.ini";
-        private FileSystemWatcher? watcher = null;
-        private DateTime _lastEventTime = DateTime.Now;
+        private readonly JsonConfig config;
+
+        private string KillingFloorIniPath => Path.Combine(this.config.GamePath, "System", "KillingFloor.ini");
+        private string UserIniPath => Path.Combine(this.config.GamePath, "System", "User.ini");
 
         public string KillingFloorIni
         {
-            get
-            {
-                if (File.Exists(this.config.GamePath + this.KillingFloorIniPath))
-                {
-                    return this.ReadIni(this.config.GamePath + this.KillingFloorIniPath);
-                }
-                return String.Empty;
-            }
-            set => this.WriteIni(this.config.GamePath + this.KillingFloorIniPath, value);
-
+            get => ReadIni(this.KillingFloorIniPath);
+            set => WriteIni(this.KillingFloorIniPath, value);
         }
-        public string UserIni 
+
+        public string UserIni
         {
-            get
-            {
-                if (File.Exists(this.config.GamePath + this.UserIniPath))
-                {
-                    return this.ReadIni(this.config.GamePath + this.UserIniPath);
-                }
-                return String.Empty;
-            }
-            set => this.WriteIni(this.config.GamePath + this.UserIniPath, value);
+            get => ReadIni(this.UserIniPath);
+            set => WriteIni(this.UserIniPath, value);
         }
 
         public KFConfig(JsonConfig config)
         {
             this.config = config;
         }
-
-        #region watcher
-        public void EnableWatcher()
-        {
-            // TODO: struggles with file access
-            this.watcher = new FileSystemWatcher(this.config.GamePath + "\\System\\");
-
-            watcher.NotifyFilter = NotifyFilters.Attributes
-                                 | NotifyFilters.CreationTime
-                                 | NotifyFilters.DirectoryName
-                                 | NotifyFilters.FileName
-                                 | NotifyFilters.LastAccess
-                                 | NotifyFilters.LastWrite
-                                 | NotifyFilters.Security
-                                 | NotifyFilters.Size;
-
-            watcher.Changed += ConfigChanged;
-            
-            watcher.Filter = "*.ini";
-            watcher.IncludeSubdirectories = false;
-            watcher.EnableRaisingEvents = true;
-        }
-
-        private void ConfigChanged(object sender, FileSystemEventArgs e)
-        {
-            if (e.ChangeType != WatcherChangeTypes.Changed || DateTime.Now.Subtract(this._lastEventTime).TotalMilliseconds < 500)
-            {
-                return;
-            }
-            this._lastEventTime = DateTime.Now;
-
-            if (e.FullPath.Contains(this.KillingFloorIniPath) || e.FullPath.Contains(this.UserIniPath))
-            {
-                this.ApplySetPatches();
-            }
-        }
-        #endregion
 
         #region patches
         public void FixConfig()
@@ -95,15 +38,13 @@ namespace KFLauncher.Models
             string ini = this.KillingFloorIni;
             if (ini.Length < 1000)
             {
-                ini = DefaultConfigs.KillingFloorIni;
-                this.KillingFloorIni = ini;
+                this.KillingFloorIni = DefaultConfigs.KillingFloorIni;
             }
 
             ini = this.UserIni;
             if (ini.Length < 1000)
             {
-                ini = DefaultConfigs.UserIni;
-                this.UserIni = ini;
+                this.UserIni = DefaultConfigs.UserIni;
             }
         }
 
@@ -111,7 +52,7 @@ namespace KFLauncher.Models
         {
             this.ApplyAllFixes();
         }
-        
+
         public void ApplyAllFixes()
         {
             // TODO: investigate best values (networking specifically seems meh?)
@@ -176,18 +117,80 @@ namespace KFLauncher.Models
             {
                 this.FixResolution();
             }
+            if (this.config.SetFov)
+            {
+                this.FixFovEnable();
+            }
+            else
+            {
+                this.FixFovDisable();
+            }
+            if (this.config.LockMouse)
+            {
+                this.FixMouseGrab();
+            }
         }
+
+        /// <summary>
+        /// Under proton the pointer is wines business, not the games: without these the cursor walks
+        /// straight off onto another monitor and a click tabs you out mid wave.  Wine reads this at
+        /// startup, so patching before launch is the moment it takes effect.
+        /// </summary>
+        void FixMouseGrab()
+        {
+            // .../steamapps/common/KillingFloor -> .../steamapps/compatdata/1250/pfx/user.reg
+            string prefix = Path.GetFullPath(Path.Combine(this.config.GamePath, "..", "..", "compatdata", "1250", "pfx", "user.reg"));
+            if (!File.Exists(prefix))
+            {
+                return;
+            }
+
+            Debug.WriteLine("Locking the mouse to the game window");
+            string reg = File.ReadAllText(prefix);
+            reg = PatchReg(reg, X11Driver, "GrabFullscreen", "Y");
+            reg = PatchReg(reg, X11Driver, "DXGrab", "Y");
+            File.WriteAllText(prefix, reg);
+        }
+
+        /// <summary>
+        /// The game resets the view to DefaultFOV at trader time and on map change, so the value
+        /// goes in the config rather than the console.  Chaining it onto the forward bind, the way
+        /// netspeed is chained onto the mouse, puts it back the moment you move if something still
+        /// stomps on it.
+        /// </summary>
+        public void FixFovEnable()
+        {
+            Debug.WriteLine("Setting FOV");
+            string ini = this.UserIni;
+            ini = PatchIni(ini, "DesiredFOV", this.config.Fov);
+            ini = PatchIni(ini, "DefaultFOV", this.config.Fov);
+            ini = PatchIni(ini, "W", $"MoveForward | fov {this.config.Fov}");
+            this.UserIni = ini;
+        }
+
+        public void FixFovDisable()
+        {
+            Debug.WriteLine("Restoring default FOV");
+            string ini = this.UserIni;
+            ini = PatchIni(ini, "DesiredFOV", "85.000000");
+            ini = PatchIni(ini, "DefaultFOV", "85.000000");
+            ini = PatchIni(ini, "W", "MoveForward");
+            this.UserIni = ini;
+        }
+
+        /// <summary>False when the path points somewhere without a System folder to patch.</summary>
+        public bool HasGameFiles => Directory.Exists(Path.Combine(this.config.GamePath, "System"));
 
         void FixResolution()
         {
             Debug.WriteLine("Fixing resolution");
             string ini = this.KillingFloorIni;
-            ini = this.PatchIni(ini, "WindowedViewportX", this.config.ResX);
-            ini = this.PatchIni(ini, "WindowedViewportY", this.config.ResY);
-            ini = this.PatchIni(ini, "FullscreenViewportX", this.config.ResX);
-            ini = this.PatchIni(ini, "FullscreenViewportY", this.config.ResY);
-            ini = this.PatchIni(ini, "MenuViewportX", this.config.ResX);
-            ini = this.PatchIni(ini, "MenuViewportY", this.config.ResY);
+            ini = PatchIni(ini, "WindowedViewportX", this.config.ResX);
+            ini = PatchIni(ini, "WindowedViewportY", this.config.ResY);
+            ini = PatchIni(ini, "FullscreenViewportX", this.config.ResX);
+            ini = PatchIni(ini, "FullscreenViewportY", this.config.ResY);
+            ini = PatchIni(ini, "MenuViewportX", this.config.ResX);
+            ini = PatchIni(ini, "MenuViewportY", this.config.ResY);
             this.KillingFloorIni = ini;
         }
 
@@ -195,10 +198,11 @@ namespace KFLauncher.Models
         {
             try
             {
-                if (Directory.Exists(this.config.GamePath + "\\Movies"))
+                string movies = Path.Combine(this.config.GamePath, "Movies");
+                if (Directory.Exists(movies))
                 {
-                    Debug.WriteLine("Enabling movies");
-                    Directory.Move(this.config.GamePath + "\\Movies", this.config.GamePath + "\\_Movies");
+                    Debug.WriteLine("Disabling movies");
+                    Directory.Move(movies, Path.Combine(this.config.GamePath, "_Movies"));
                 }
             }
             catch
@@ -211,10 +215,11 @@ namespace KFLauncher.Models
         {
             try
             {
-                if (Directory.Exists(this.config.GamePath + "\\_Movies"))
+                string movies = Path.Combine(this.config.GamePath, "_Movies");
+                if (Directory.Exists(movies))
                 {
-                    Debug.WriteLine("Disabling movies");
-                    Directory.Move(this.config.GamePath + "\\_Movies", this.config.GamePath + "\\Movies");
+                    Debug.WriteLine("Enabling movies");
+                    Directory.Move(movies, Path.Combine(this.config.GamePath, "Movies"));
                 }
             }
             catch
@@ -226,53 +231,41 @@ namespace KFLauncher.Models
         public void FixQuickHealEnable()
         {
             Debug.WriteLine("Binding quickheal");
-            string ini = this.UserIni;
-            ini = this.PatchIni(ini, "Q", "getweapon syringe | onrelease SwitchToLastWeapon | onrelease quickheal");
-            this.UserIni = ini;
+            this.UserIni = PatchIni(this.UserIni, "Q", "getweapon syringe | onrelease SwitchToLastWeapon | onrelease quickheal");
         }
 
         public void FixQuickHealDisable()
         {
             Debug.WriteLine("Unbinding quickheal");
-            string ini = this.UserIni;
-            ini = this.PatchIni(ini, "Q", "QuickHeal");
-            this.UserIni = ini;
+            this.UserIni = PatchIni(this.UserIni, "Q", "QuickHeal");
         }
 
         public void FixIntroEnable()
         {
             Debug.WriteLine("Enabling intro");
-            string ini = this.KillingFloorIni;
-            ini = this.PatchIni(ini, "LocalMap", "KFintro.rom");
-            this.KillingFloorIni = ini;
+            this.KillingFloorIni = PatchIni(this.KillingFloorIni, "LocalMap", "KFintro.rom");
         }
+
         public void FixIntroDisable()
         {
             Debug.WriteLine("Disabling intro");
-            string ini = this.KillingFloorIni;
-            ini = this.PatchIni(ini, "LocalMap", "KF-Menu.rom");
-            this.KillingFloorIni = ini;
+            this.KillingFloorIni = PatchIni(this.KillingFloorIni, "LocalMap", "KF-Menu.rom");
         }
 
         public void FixMusic()
         {
             Debug.WriteLine("Disabling music");
-            string ini = this.UserIni;
-            ini = this.PatchIni(ini, "bDisableMusicInGame", "True");
-            this.UserIni = ini;
-
-            ini = this.KillingFloorIni;
-            ini = this.PatchIni(ini, "MusicVolume", "0.0000");
-            this.KillingFloorIni = ini;
+            this.UserIni = PatchIni(this.UserIni, "bDisableMusicInGame", "True");
+            this.KillingFloorIni = PatchIni(this.KillingFloorIni, "MusicVolume", "0.0000");
         }
 
         public void FixCacheEnable()
         {
             Debug.WriteLine("Enabling cache");
             string ini = this.KillingFloorIni;
-            ini = this.PatchIni(ini, "UsePrecaching", "True");
-            ini = this.PatchIni(ini, "UsePrecache", "True");
-            ini = this.PatchIni(ini, "bNeverPrecache", "False");
+            ini = PatchIni(ini, "UsePrecaching", "True");
+            ini = PatchIni(ini, "UsePrecache", "True");
+            ini = PatchIni(ini, "bNeverPrecache", "False");
             this.KillingFloorIni = ini;
         }
 
@@ -280,56 +273,52 @@ namespace KFLauncher.Models
         {
             Debug.WriteLine("Disabling cache");
             string ini = this.KillingFloorIni;
-            ini = this.PatchIni(ini, "UsePrecaching", "False");
-            ini = this.PatchIni(ini, "UsePrecache", "False");
-            ini = this.PatchIni(ini, "bNeverPrecache", "True");
+            ini = PatchIni(ini, "UsePrecaching", "False");
+            ini = PatchIni(ini, "UsePrecache", "False");
+            ini = PatchIni(ini, "bNeverPrecache", "True");
             this.KillingFloorIni = ini;
         }
 
         public void FixCacheSizeEnable()
         {
             Debug.WriteLine("Fixing cache size");
-            string ini = this.KillingFloorIni;
-            ini = this.PatchIni(ini, "CacheSizeMegs", "256");
-            this.KillingFloorIni = ini;
+            this.KillingFloorIni = PatchIni(this.KillingFloorIni, "CacheSizeMegs", "256");
         }
 
         public void FixCacheSizeDisable()
         {
             Debug.WriteLine("Fixing cache size");
-            string ini = this.KillingFloorIni;
-            ini = this.PatchIni(ini, "CacheSizeMegs", "32");
-            this.KillingFloorIni = ini;
+            this.KillingFloorIni = PatchIni(this.KillingFloorIni, "CacheSizeMegs", "32");
         }
 
         public void FixFPSLock()
         {
             Debug.WriteLine("Fixing FPS lock");
             string ini = this.KillingFloorIni;
-            ini = this.PatchIni(ini, "MaxClientFrameRate", "200");
-            ini = this.PatchIni(ini, "MinDesiredFrameRate", "1.0000");
+            ini = PatchIni(ini, "MaxClientFrameRate", "200");
+            ini = PatchIni(ini, "MinDesiredFrameRate", "1.0000");
             this.KillingFloorIni = ini;
         }
+
         public void FixPerformance()
         {
             Debug.WriteLine("Fixing performance");
             string ini = this.KillingFloorIni;
-            ini = this.PatchIni(ini, "CheckForOverflow", "True"); // False?
-            ini = this.PatchIni(ini, "AvoidHitches", "True"); // False?
+            ini = PatchIni(ini, "CheckForOverflow", "True"); // False?
+            ini = PatchIni(ini, "AvoidHitches", "True"); // False?
             this.KillingFloorIni = ini;
         }
+
         public void FixMouseLag()
         {
             Debug.WriteLine("Fixing mouse lag");
-            string ini = this.KillingFloorIni;
-            ini = this.PatchIni(ini, "ReduceMouseLag", "True"); // False?
-            this.KillingFloorIni = ini;
-            
-            ini = this.UserIni;
-            ini = this.PatchIni(ini, "MouseSamplingTime", "0.001");
-            ini = this.PatchIni(ini, "MouseAccelThreshold", "-1");
-            ini = this.PatchIni(ini, "MouseSmoothingMode", "0");
-            ini = this.PatchIni(ini, "MouseSmoothingStrength", "0.000000");
+            this.KillingFloorIni = PatchIni(this.KillingFloorIni, "ReduceMouseLag", "True"); // False?
+
+            string ini = this.UserIni;
+            ini = PatchIni(ini, "MouseSamplingTime", "0.001");
+            ini = PatchIni(ini, "MouseAccelThreshold", "-1");
+            ini = PatchIni(ini, "MouseSmoothingMode", "0");
+            ini = PatchIni(ini, "MouseSmoothingStrength", "0.000000");
             this.UserIni = ini;
         }
 
@@ -337,110 +326,230 @@ namespace KFLauncher.Models
         {
             Debug.WriteLine("Fixing net speed");
             string ini = this.UserIni;
-            ini = this.PatchIni(ini, "ConfiguredInternetSpeed", "15000");
-            ini = this.PatchIni(ini, "LeftMouse", "Fire | netspeed 30000");
-            ini = this.PatchIni(ini, "MiddleMouse", "AltFire | netspeed 30000");
-            ini = this.PatchIni(ini, "RightMouse", "Aiming | netspeed 30000");
+            ini = PatchIni(ini, "ConfiguredInternetSpeed", "15000");
+            ini = PatchIni(ini, "LeftMouse", "Fire | netspeed 30000");
+            ini = PatchIni(ini, "MiddleMouse", "AltFire | netspeed 30000");
+            ini = PatchIni(ini, "RightMouse", "Aiming | netspeed 30000");
             this.UserIni = ini;
         }
         #endregion
 
         #region io
-        private string PatchIni(string ini, string key, string value) 
-        {
-            string regex = $"({key})(=|\\s=|=\\s)*[^\r\n\b]*";
-            return Regex.Replace(ini, regex, $"{key}={value}");
-        }
+        private const string X11Driver = @"[Software\\Wine\\X11 Driver]";
 
-        private string ReadIni(string path)
+        /// <summary>Sets a value in a wine user.reg, adding the section if it is not there yet.</summary>
+        internal static string PatchReg(string reg, string section, string key, string value)
         {
-            //while (!AwaitFileAccess(path)) { }
-            string ini = String.Empty;
-            if (File.Exists(path))
+            string entry = $"\"{key}\"=\"{value}\"";
+            List<string> output = new();
+            bool inSection = false;
+            bool written = false;
+
+            foreach (string line in reg.Replace("\r\n", "\n").Split('\n'))
             {
-                ini = File.ReadAllText(path);
+                if (line.StartsWith('['))
+                {
+                    // leaving our section without having written the value, so write it here
+                    if (inSection && !written)
+                    {
+                        output.Add(entry);
+                        written = true;
+                    }
+
+                    inSection = line.StartsWith(section, StringComparison.Ordinal);
+                }
+
+                if (inSection && line.StartsWith($"\"{key}\"=", StringComparison.Ordinal))
+                {
+                    output.Add(entry);
+                    written = true;
+                    continue;
+                }
+
+                output.Add(line);
             }
 
-            return ini;
+            if (!written)
+            {
+                if (!inSection)
+                {
+                    output.Add(string.Empty);
+                    output.Add($"{section} {DateTimeOffset.UtcNow.ToUnixTimeSeconds()}");
+                }
+
+                output.Add(entry);
+            }
+
+            return string.Join("\n", output);
         }
 
-        private void WriteIni(string path, string ini)
+        internal static string PatchIni(string ini, string key, string value)
         {
-            //while (AwaitFileAccess(path) == false) { }
+            // anchored to the start of a line, otherwise short keys ("Q") eat other entries ("Quality=3")
+            return Regex.Replace(ini, $@"^{Regex.Escape(key)}\s*=[^\r\n]*", $"{key}={value}", RegexOptions.Multiline);
+        }
+
+        private static string ReadIni(string path)
+        {
+            return File.Exists(path) ? File.ReadAllText(path) : string.Empty;
+        }
+
+        private static void WriteIni(string path, string ini)
+        {
+            if (!Directory.Exists(Path.GetDirectoryName(path)))
+            {
+                return;
+            }
+
+            // people mark these read only to stop the game clobbering them, which would otherwise
+            // throw straight through the launch command
+            if (File.Exists(path))
+            {
+                FileAttributes attributes = File.GetAttributes(path);
+                if (attributes.HasFlag(FileAttributes.ReadOnly))
+                {
+                    File.SetAttributes(path, attributes & ~FileAttributes.ReadOnly);
+                }
+            }
+
             File.WriteAllText(path, ini);
         }
 
-        public string DetectGamePath()
+        /// <summary>Steam drops launch arguments when the game already runs, so we need to know.</summary>
+        public static bool IsGameRunning()
         {
-            Debug.WriteLine("Detecting game path..");
-
-            // scan for steam installation directories
-            List<string> steamDirectories = new();
-            string[] drives = Directory.GetLogicalDrives();
-            foreach (string drive in drives)
-            {
-                steamDirectories.AddRange(
-                    CrawlDirectories(drive, new string[] { "library", "steam", "games", "program files" })
-                    .Where(path => path.ToLower().Contains("steam"))
-                    );
-            }
-
-            // scan steam directories for the games folder
-            List<string> gameDirectories = new();
-            foreach (string dir in steamDirectories)
-            {
-                gameDirectories.AddRange(
-                    CrawlDirectories(dir, new string[] { "steamapps", "common", "killingfloor" })
-                    .Where(path => path.ToLower().Contains("killingfloor") && !path.Contains("2"))
-                    );
-            }
-            gameDirectories = gameDirectories.Distinct().ToList();
-
-            return gameDirectories.FirstOrDefault(String.Empty);
-        }
-
-        private static List<string> CrawlDirectories(string path, string[] matches, int depth = 0)
-        {
-            List<string> directories = new();
             try
             {
-                foreach (string dir in Directory.EnumerateDirectories(path))
+                // under proton the process is a wine one, and its name is cut to 15 characters, so
+                // go by the command line instead, which still carries the full path to the exe
+                if (OperatingSystem.IsLinux())
                 {
-                    string folderName = new DirectoryInfo(dir).Name;
-                    if (matches.Any(folderName.ToLower().Contains))
+                    foreach (string cmdline in Directory.EnumerateDirectories("/proc"))
                     {
-                        directories.Add(dir);
-
-                        if (depth > 5)
+                        string path = Path.Combine(cmdline, "cmdline");
+                        if (File.Exists(path) && IsGameCommandLine(ReadQuietly(path)))
                         {
-                            break;
+                            return true;
                         }
-
-                        directories.AddRange(CrawlDirectories(dir, matches, depth + 1));
                     }
+
+                    return false;
                 }
             }
-            catch
+            catch (IOException)
             {
-
+                // /proc entries come and go while we walk them
             }
 
-            return directories;
-        }
-
-        private static bool AwaitFileAccess(string path)
-        {
-            // TODO: this is stupid and hardly works
+            Process[] all;
             try
             {
-                using (FileStream file = File.Open(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
-                {
-                    return file.CanRead;
-                }
+                all = Process.GetProcesses();
             }
             catch
             {
                 return false;
+            }
+
+            try
+            {
+                return all.Any(p => IsGameProcess(p.ProcessName));
+            }
+            finally
+            {
+                foreach (Process process in all)
+                {
+                    process.Dispose();
+                }
+            }
+        }
+
+        private static string ReadQuietly(string path)
+        {
+            try
+            {
+                return File.ReadAllText(path);
+            }
+            catch
+            {
+                return string.Empty;
+            }
+        }
+
+        /// <summary>
+        /// Windows and macos report the whole process name.  Matching the whole thing rather than a
+        /// prefix keeps a launcher binary called KillingFloorLauncher out of it.
+        /// </summary>
+        internal static bool IsGameProcess(string name)
+        {
+            foreach (string suffix in new[] { ".exe", ".ex", ".bin" })
+            {
+                if (name.EndsWith(suffix, StringComparison.OrdinalIgnoreCase))
+                {
+                    name = name[..^suffix.Length];
+                    break;
+                }
+            }
+
+            return name.Equals("KillingFloor", StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>KF2 lives in common/KillingFloor2 and runs KFGame.exe, so neither pattern hits it.</summary>
+        internal static bool IsGameCommandLine(string cmdline)
+        {
+            cmdline = cmdline.Replace('\\', '/').ToLowerInvariant();
+
+            return cmdline.Contains("killingfloor.exe") || cmdline.Contains("/killingfloor/");
+        }
+
+        /// <summary>Find the game via steams own library index, on any platform.</summary>
+        public static string DetectGamePath()
+        {
+            Debug.WriteLine("Detecting game path..");
+
+            foreach (string library in SteamLibraries())
+            {
+                string game = Path.Combine(library, "steamapps", "common", "KillingFloor");
+                if (File.Exists(Path.Combine(game, "System", "KillingFloor.ini")) || Directory.Exists(Path.Combine(game, "System")))
+                {
+                    return game;
+                }
+            }
+
+            return string.Empty;
+        }
+
+        private static IEnumerable<string> SteamLibraries()
+        {
+            string home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            string[] roots =
+            [
+                // windows
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "Steam"),
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Steam"),
+                // linux, including flatpak
+                Path.Combine(home, ".steam", "steam"),
+                Path.Combine(home, ".local", "share", "Steam"),
+                Path.Combine(home, ".var", "app", "com.valvesoftware.Steam", ".local", "share", "Steam"),
+                // macos
+                Path.Combine(home, "Library", "Application Support", "Steam"),
+            ];
+
+            foreach (string root in roots.Where(r => Path.IsPathRooted(r) && Directory.Exists(r)))
+            {
+                yield return root;
+
+                // extra libraries (other drives, external disks) are listed in the vdf
+                string vdf = Path.Combine(root, "steamapps", "libraryfolders.vdf");
+                if (!File.Exists(vdf))
+                {
+                    continue;
+                }
+
+                foreach (Match match in Regex.Matches(File.ReadAllText(vdf), "\"path\"\\s+\"(.+?)\""))
+                {
+                    yield return match.Groups[1].Value.Replace("\\\\", "\\");
+                }
             }
         }
         #endregion

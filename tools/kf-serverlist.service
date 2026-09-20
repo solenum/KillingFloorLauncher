@@ -1,0 +1,10 @@
+[Unit]
+Description=Cache the steam server list for the Killing Floor launcher
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# STEAM_API_KEY=... and optionally OUT=..., keep it chmod 600 and out of git
+EnvironmentFile=/etc/kf-serverlist.env
+ExecStart=/usr/local/bin/kf-serverlist.sh
