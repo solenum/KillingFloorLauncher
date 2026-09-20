@@ -22,17 +22,23 @@ Most of these improvements will be noticable right away.  The one caveat to this
 
 This tool by default works with the steam version of Killing Floor, but should work with non-steam versions if you supply the game directory path manually.
 
+Windows and linux (including proton) are both supported, macos builds but is untested.
+
 ### **Modifying settings in-game can overwrite this tools changes, be sure to change your settings in-game first and then re-launch the game via this tool!**
 
 ## How to use this tool
-Download the latest release from the right, place the .exe on your desktop (or anywhere) and run it.
+Download the release for your platform, put it wherever you like and run it.
 
-The tool will attempt to locate your games directory by crawling logical drives for steam libraries, and then crawling those steam libraries for the games installation.  If this fails, you can specify the directory manually.
+The tool finds your install by reading steams own library index (`libraryfolders.vdf`), so it picks up games on other drives and external disks as well, on windows, linux and macos.  If that fails, point it at the directory yourself on the Launch tab.
 
-Clicking the 'Launch Killing Floor' button will inject the config, and then start Killing Floor via the steam uri.
+Clicking 'Launch Killing Floor' injects the config and starts the game through steam.
+
+If the game is lacking config files or they are malformed, the tool will attempt to generate a default one (based on the default configuration the game generates for new installations), it will then inject that config and launch the game.
 
 ## Server browser
-The 'Servers' tab lists every Killing Floor server steam knows about, with live player counts, map and ping.  Password protected servers are marked with a padlock.  Clicking a server opens a panel underneath with its address, a copy button and who is playing right now, names, scores and how long they have been in.  Hitting 'Connect' (or double clicking the row) injects your config and then hands the server to steam (`steam://connect/ip:port`), which starts the game and joins it.
+The 'Servers' tab lists every Killing Floor server steam knows about, with live player counts, map and ping.  Password protected servers are marked with a padlock.  Clicking a server opens a panel underneath with its address, a copy button and who is playing right now, names, scores and how long they have been in.  Hitting 'Connect' (or double clicking the row) injects your config and then starts the game on that server.
+
+That goes through `steam://run/1250//<ip>:<port>/` rather than the obvious `steam://connect`, because steam works out which game a `connect` link belongs to by querying the server, and KF servers do not report an app id it accepts: you get "app id specified by server is invalid" on either the game port or the query port.  Naming the app in the url and letting unreal take the address as a launch argument sidesteps the lookup entirely.
 
 By default the launcher stays open once the game is on its way.  You can have it minimize or close instead under 'After launching' on the Launch tab, though note that minimizing stops the window being painted, and tiling window managers that keep it on screen anyway (bspwm, i3, ...) will show a stale window until you resize it, so leave it open or close it there.
 
@@ -63,8 +69,6 @@ It writes `/var/www/html/kf-servers.json` by default (`OUT=` in the env file cha
 
 To make that the default for everyone who downloads a release, set `DefaultListUrl` in `KFLauncher/Models/ServerBrowser.cs` before tagging.  The launcher then just works, with the api key box as a fallback if your host is down.
 
-If the game is lacking config files or they are malformed, the tool will attempt to generate a default one (based on the default configuration the game generates for new installations), it will then inject that config and launch the game.
-
 ## Why did you make this
 I got tired of fixing my config files every time the game broke them.  Why not set them as read-only you ask?  Doing so will prevent other important changes from saving, such as skin selection, server favorites, input settings etc etc.
 
@@ -76,10 +80,20 @@ This tool is very early-stage and only does some basic QoL changes.  While it is
 Future plans include some of the following:
 * ~~The ability to select what patches you want this tool to apply~~
 * The ability to modify most/all in-game settings from the launcher
-* ~~An embeded server-browser, with ability to connect from launcher~~ (favorites and a password prompt still to come)
+* ~~An embeded server-browser, with favorites, ability to connect from launcher, etc~~ (favorites and a password prompt still to come)
 * Joining a server without closing the game first, if steam ever grows a way in
 * ~~Make less ugly~~
 * Fix the many bugs that exist
+
+## Building it yourself
+Needs the .NET 10 SDK, nothing else:
+
+```sh
+dotnet build KFLauncher/KFLauncher.csproj
+dotnet run --project KFLauncher/KFLauncher.csproj -- --selftest
+```
+
+`--selftest` checks the parts that are easy to break quietly: the A2S info and player parsers, the server list parser, the ini patcher, the wine registry patcher and the running game detection.  Pushing a `v*` tag builds the self contained binaries for both platforms and puts them on a release.
 
 ### Screenshot
 
