@@ -1,71 +1,62 @@
-﻿using KFLauncher.ViewModels;
-using Newtonsoft.Json;
-using ReactiveUI;
-using ReactiveUI.Fody.Helpers;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace KFLauncher.Models
 {
-    [JsonObject(MemberSerialization.OptOut)]
-    public class JsonConfig : ReactiveObject
+    public partial class JsonConfig : ObservableObject
     {
-        // TODO: config for other options and patches
-        private string _gamePath = String.Empty;
-        [Reactive]
-        public string GamePath
-        {
-            get
-            {
-                return this._gamePath;
-            }
-            set
-            {
-                this._gamePath = value;
-                this._gamePath = this._gamePath.EndsWith(@"\\") ? this._gamePath.Substring(0, this._gamePath.Length - 2) : this._gamePath;
-            }
-        }
-        
-        [Reactive]
-        public bool DisableCache { get; set; } = false;
-        
-        [Reactive]
-        public bool OptimizePerformance { get; set; } = true;
-        
-        [Reactive]
-        public bool DisableMusic { get; set; } = false;
+        [ObservableProperty]
+        private string gamePath = string.Empty;
 
-        [Reactive]
-        public bool SkipIntro { get; set; } = true;
+        [ObservableProperty]
+        private bool disableCache = false;
 
-        [Reactive]
-        public bool IncreaseCacheLimit { get; set; } = true;
-        
-        [Reactive]
-        public bool UnlockFramerate { get; set; } = true;
+        [ObservableProperty]
+        private bool optimizePerformance = true;
 
-        [Reactive]
-        public bool FixMouseInput { get; set; } = true;
+        [ObservableProperty]
+        private bool disableMusic = false;
 
-        [Reactive]
-        public bool DisableMovies { get; set; } = false;
-        
-        [Reactive]
-        public bool QuickHeal { get; set; } = true;
+        [ObservableProperty]
+        private bool skipIntro = true;
 
-        [Reactive]
-        public bool SetResolution { get; set; } = false;
+        [ObservableProperty]
+        private bool increaseCacheLimit = true;
 
-        [Reactive]
-        public string ResX { get; set; } = "1920";
+        [ObservableProperty]
+        private bool unlockFramerate = true;
 
-        [Reactive]
-        public string ResY { get; set; } = "1080";
+        [ObservableProperty]
+        private bool fixMouseInput = true;
 
-        [Reactive]
-        public bool FirstLaunch { get; set; } = true;
+        [ObservableProperty]
+        private bool disableMovies = false;
+
+        [ObservableProperty]
+        private bool quickHeal = true;
+
+        /// <summary>Wine/proton pointer grab, so the cursor cannot wander onto another monitor.</summary>
+        [ObservableProperty]
+        private bool lockMouse = true;
+
+        [ObservableProperty]
+        private bool setResolution = false;
+
+        [ObservableProperty]
+        private string resX = "1920";
+
+        [ObservableProperty]
+        private string resY = "1080";
+
+        [ObservableProperty]
+        private bool firstLaunch = true;
+
+        /// <summary>0 leave open, 1 minimize, 2 close.  Minimizing stops avalonia painting the
+        /// window, and tiling wms like bspwm keep it on screen anyway, so it looks frozen there.</summary>
+        [ObservableProperty]
+        private int afterLaunch = 0;
+
+        /// <summary>From https://steamcommunity.com/dev/apikey, needed for the server list.</summary>
+        [ObservableProperty]
+        private string steamApiKey = string.Empty;
     }
 }

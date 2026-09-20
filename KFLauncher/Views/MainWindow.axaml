@@ -3,147 +3,173 @@
         xmlns:vm="using:KFLauncher.ViewModels"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        mc:Ignorable="d" d:DesignWidth="550" d:DesignHeight="690"
+        mc:Ignorable="d" d:DesignWidth="920" d:DesignHeight="680"
         x:Class="KFLauncher.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
         Icon="/Assets/Icon.ico"
         Title="KFLauncher"
-		CanResize="False"
-		MaxWidth="550" MaxHeight="690"
-		Width="550" Height="690">
-	<!--SizeToContent="WidthAndHeight"-->
+        Background="#0b0e14"
+        Width="920" Height="680" MinWidth="760" MinHeight="560">
 
-    <Design.DataContext>
-        <vm:MainWindowViewModel/>
-    </Design.DataContext>
+    <Window.Styles>
+        <Style Selector="Button.accent">
+            <Setter Property="Background" Value="#e6b450"/>
+            <Setter Property="Foreground" Value="#1a1200"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+        <Style Selector="Button.accent:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#f5cf77"/>
+            <Setter Property="Foreground" Value="#1a1200"/>
+        </Style>
+        <Style Selector="Button.launch">
+            <Setter Property="FontSize" Value="18"/>
+            <Setter Property="Height" Value="52"/>
+        </Style>
+        <Style Selector="TextBlock.section">
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="#e6b450"/>
+            <Setter Property="Margin" Value="0 0 0 8"/>
+        </Style>
+        <Style Selector="CheckBox">
+            <Setter Property="Margin" Value="0 3"/>
+        </Style>
+    </Window.Styles>
 
-	<Window.Styles>
-		<Style Selector="TextBlock.h1">
-			<Setter Property="FontSize" Value="32"/>
-			<Setter Property="FontWeight" Value="Bold"/>
-			<Setter Property="Foreground" Value="#FF0000" />
-		</Style>
-		<Style Selector="Button">
-			<Setter Property="Foreground" Value="#734d00"/>
-			<Setter Property="Background" Value="#e6b450"/>
-			<Setter Property="BorderBrush" Value="#C6A420"/>
-			<Setter Property="BorderThickness" Value="1"/>
-			<Setter Property="FontWeight" Value="Bold"/>
-			<Setter Property="CornerRadius" Value="4"/>
-		</Style>
-		<Style Selector="Button:pointerover /template/ ContentPresenter">
-			<Setter Property="Background" Value="#00CC12"/>
-		</Style>
-		<Style Selector="Button.Square">
-			<Setter Property="CornerRadius" Value="0 4 4 0"/>
-		</Style>
-		<Style Selector="Button.Launch">
-			<Setter Property="CornerRadius" Value="16 16 0 0"/>
-			<Setter Property="FontSize" Value="24"/>
-		</Style>
-		<Style Selector="TextBox.Square">
-			<Setter Property="CornerRadius" Value="4 0 0 4"/>
-			<Setter Property="BorderBrush" Value="#734d00"/>
-		</Style>
-		<Style Selector="CheckBox /template/ Border#NormalRectangle">
-			<Setter Property="BorderBrush" Value="#e6b450"/>
-			<Setter Property="Background" Value="#e6b450"/>
-		</Style>
-		<Style Selector="CheckBox:pointerover /template/ Border#NormalRectangle">
-			<Setter Property="BorderBrush" Value="#00CC12"/>
-			<Setter Property="Background" Value="#e6b450"/>
-		</Style>
-		<Style Selector="CheckBox:checked /template/ Path#CheckGlyph">
-			<Setter Property="Fill" Value="#000"/>
-		</Style>
-		<Style Selector="CheckBox:unchecked">
-			<Setter Property="Foreground" Value="#666"/>
-		</Style>
-		<Style Selector="CheckBox:checked /template/ Border#NormalRectangle">
-			<Setter Property="BorderBrush" Value="#00CC12"/>
-			<Setter Property="Background" Value="#00CC12"/>
-		</Style>
-		<Style Selector="Window">
-			<Setter Property="Background" Value="#0b0e14"/>
-		</Style>
-	</Window.Styles>
-	
-	<StackPanel Orientation="Vertical" Margin="0 0" HorizontalAlignment="Center">
-		<!-- Header image -->
-		<Grid Margin="0 0 0 16">
-			<Image Source="/Assets/Logo.png" Width="600"/>
-		</Grid>
+    <DockPanel Margin="16">
+        <!-- Header -->
+        <Grid DockPanel.Dock="Top" Margin="0 0 0 12" ColumnDefinitions="Auto,*">
+            <Image Grid.Column="0" Source="/Assets/Logo.png" Height="52" HorizontalAlignment="Left"/>
+            <TextBlock Grid.Column="1" Text="{Binding Status}" Foreground="#8b93a1"
+                       VerticalAlignment="Center" HorizontalAlignment="Right" TextTrimming="CharacterEllipsis"/>
+        </Grid>
 
-		<StackPanel Margin="0" Orientation="Horizontal" HorizontalAlignment="Center">
-			<Button Margin="8" Command="{Binding DetectConfig}" Content="Detect game path" Width="200" Padding="8" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"  HorizontalAlignment="Center"/>
-			<Button Margin="8" Command="{Binding SetRecommended}" Content="Use recommended" Width="200" Padding="8" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"  HorizontalAlignment="Center"/>
-		</StackPanel>
+        <TabControl>
+            <!-- Server browser -->
+            <TabItem Header="Servers">
+                <DockPanel Margin="0 8 0 0">
+                    <!-- shown until a key is saved, the list comes from the steam web api -->
+                    <Border DockPanel.Dock="Top" IsVisible="{Binding NeedsApiKey}" Margin="0 0 0 10"
+                            Background="#141a24" BorderBrush="#242c3a" BorderThickness="1" CornerRadius="6" Padding="12">
+                        <StackPanel Spacing="8">
+                            <TextBlock Foreground="#8b93a1" TextWrapping="Wrap"
+                                       Text="The server list comes from the steam web api, which needs a free key tied to your steam account. Paste it once and it is remembered."/>
+                            <Grid ColumnDefinitions="*,Auto,Auto">
+                                <TextBox Grid.Column="0" Watermark="Steam web api key" Text="{Binding Config.SteamApiKey}"/>
+                                <Button Grid.Column="1" Margin="8 0 0 0" Content="Get a key" Command="{Binding GetApiKeyCommand}"/>
+                                <Button Grid.Column="2" Margin="8 0 0 0" Classes="accent" Content="Load servers" Command="{Binding RefreshServersCommand}"/>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
 
-		<StackPanel Margin="0" Orientation="Horizontal" HorizontalAlignment="Center">
-			<Button Margin="8" Command="{Binding RestoreConfig}" Content="Restore original configuration files" Width="420" Padding="8" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"  HorizontalAlignment="Center"/>
-		</StackPanel>
+                    <Grid DockPanel.Dock="Top" Margin="0 0 0 8" ColumnDefinitions="*,Auto,Auto,Auto">
+                        <TextBox Grid.Column="0" Watermark="Filter by server name or map" Text="{Binding Filter}"/>
+                        <CheckBox Grid.Column="1" Margin="12 0 0 0" IsChecked="{Binding HideEmpty}" Content="Hide empty"/>
+                        <CheckBox Grid.Column="2" Margin="12 0 0 0" IsChecked="{Binding HideFull}" Content="Hide full"/>
+                        <Button Grid.Column="3" Margin="12 0 0 0" Width="110" Classes="accent" Content="Refresh"
+                                Command="{Binding RefreshServersCommand}" IsEnabled="{Binding !IsRefreshing}"/>
+                    </Grid>
 
-		<!-- Checkboxes -->
-		<Grid Margin="0 16" HorizontalAlignment="Center">
-			<Grid.ColumnDefinitions>
-				<ColumnDefinition Width="1*"/>
-				<ColumnDefinition Width="1*"/>
-			</Grid.ColumnDefinitions>
+                    <ProgressBar DockPanel.Dock="Top" Margin="0 0 0 8" Height="2" IsIndeterminate="True"
+                                 IsVisible="{Binding IsRefreshing}"/>
 
-			<StackPanel Grid.Column="0" Margin="16 0" HorizontalAlignment="Center">
-				<CheckBox IsChecked="{Binding Config.DisableCache}">Disable cache (Causes stutters)</CheckBox>
-				<CheckBox IsChecked="{Binding Config.OptimizePerformance}">Optimize performance</CheckBox>
-				<CheckBox IsChecked="{Binding Config.DisableMusic}">Disable music</CheckBox>
-				<CheckBox IsChecked="{Binding Config.SkipIntro}">Skip intro</CheckBox>
-				<CheckBox IsChecked="{Binding Config.QuickHeal}">Bind Q quickheal</CheckBox>
-			</StackPanel>
+                    <DataGrid ItemsSource="{Binding Servers}" IsReadOnly="True" CanUserSortColumns="True"
+                              SelectionMode="Single" GridLinesVisibility="Horizontal">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Server" Binding="{Binding Name}" Width="*"/>
+                            <DataGridTextColumn Header="Map" Binding="{Binding Map}" Width="190"/>
+                            <DataGridTextColumn Header="Players" Binding="{Binding Slots}" SortMemberPath="Players" Width="90"/>
+                            <DataGridTextColumn Header="Ping" Binding="{Binding PingText}" SortMemberPath="Ping" Width="70"/>
+                            <DataGridTemplateColumn Header="" Width="120">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <Button Content="Connect" Classes="accent" Margin="4 3"
+                                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                                Command="{Binding $parent[DataGrid].DataContext.ConnectCommand}"
+                                                CommandParameter="{Binding}"/>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+            </TabItem>
 
-			<StackPanel Grid.Column="1" Margin="16 0" HorizontalAlignment="Center">
-				<CheckBox IsChecked="{Binding Config.IncreaseCacheLimit}">Increase cache limit</CheckBox>
-				<CheckBox IsChecked="{Binding Config.UnlockFramerate}">Unlock framerate</CheckBox>
-				<CheckBox IsChecked="{Binding Config.FixMouseInput}">Fix mouse input</CheckBox>
-				<CheckBox IsChecked="{Binding Config.DisableMovies}">Disable movies</CheckBox>
-				<CheckBox IsChecked="{Binding Config.SetResolution}">Override resolution</CheckBox>
-			</StackPanel>
-		</Grid>
-		
-		<!-- Screen resolution -->
-		<Grid Margin="0" HorizontalAlignment="Center">
-			<Grid.ColumnDefinitions>
-				<ColumnDefinition Width="*"/>
-				<ColumnDefinition Width="1*"/>
-				<ColumnDefinition Width="*"/>
-			</Grid.ColumnDefinitions>
-			
-			<StackPanel Grid.Column="0" Margin="0" IsEnabled="{Binding Config.SetResolution}">
-				<TextBox Watermark="Window width" Text="{Binding Config.ResX}"/>
-			</StackPanel>
-			
-			<StackPanel Grid.Column="1" Margin="8 0" VerticalAlignment="Center">
-				<TextBlock>X</TextBlock>
-			</StackPanel>
-			
-			<StackPanel Grid.Column="2" Margin="0" IsEnabled="{Binding Config.SetResolution}">
-				<TextBox Watermark="Window height" Text="{Binding Config.ResY}"/>
-			</StackPanel>
-		</Grid>
+            <!-- Patches / launch -->
+            <TabItem Header="Launch">
+                <DockPanel Margin="0 8 0 0">
+                    <Button DockPanel.Dock="Bottom" Classes="accent launch" Content="Launch Killing Floor"
+                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                            Command="{Binding StartGameCommand}"/>
 
-		<!-- Config path -->
-		<Grid Margin="0 16" HorizontalAlignment="Center">
-			<Grid.ColumnDefinitions>
-				<ColumnDefinition Width="2*"/>
-				<ColumnDefinition Width="*"/>
-			</Grid.ColumnDefinitions>
-			
-			<StackPanel Grid.Column="0">
-				<TextBox Classes="Square" Width="400" Height="32" Watermark="Install Directory (usually steamapps\common\KillingFloor)" Text="{Binding Config.GamePath}"/>
-			</StackPanel>
+                    <StackPanel Spacing="16">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Button Content="Detect game path" Width="200" HorizontalContentAlignment="Center"
+                                    Command="{Binding DetectConfigCommand}"/>
+                            <Button Content="Use recommended" Width="200" HorizontalContentAlignment="Center"
+                                    Command="{Binding SetRecommendedCommand}"/>
+                            <Button Content="Restore original config files" Width="240" HorizontalContentAlignment="Center"
+                                    Command="{Binding RestoreConfigCommand}"/>
+                        </StackPanel>
 
-			<StackPanel HorizontalAlignment="Center" Grid.Column="1">
-				<Button Classes="Square" Content="Browse" Height="32" Command="{Binding OpenFinder}"/>
-			</StackPanel>
-		</Grid>
+                        <StackPanel>
+                            <TextBlock Classes="section" Text="Patches"/>
+                            <Grid ColumnDefinitions="*,*">
+                                <StackPanel Grid.Column="0">
+                                    <CheckBox IsChecked="{Binding Config.DisableCache}" Content="Disable cache (causes stutters)"/>
+                                    <CheckBox IsChecked="{Binding Config.OptimizePerformance}" Content="Optimize performance"/>
+                                    <CheckBox IsChecked="{Binding Config.DisableMusic}" Content="Disable music"/>
+                                    <CheckBox IsChecked="{Binding Config.SkipIntro}" Content="Skip intro"/>
+                                    <CheckBox IsChecked="{Binding Config.QuickHeal}" Content="Bind Q quickheal"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="1">
+                                    <CheckBox IsChecked="{Binding Config.IncreaseCacheLimit}" Content="Increase cache limit"/>
+                                    <CheckBox IsChecked="{Binding Config.UnlockFramerate}" Content="Unlock framerate"/>
+                                    <CheckBox IsChecked="{Binding Config.FixMouseInput}" Content="Fix mouse input"/>
+                                    <CheckBox IsChecked="{Binding Config.DisableMovies}" Content="Disable movies"/>
+                                    <CheckBox IsChecked="{Binding Config.SetResolution}" Content="Override resolution"/>
+                                    <CheckBox IsChecked="{Binding Config.LockMouse}" Content="Lock mouse to game window (proton)"/>
+                                </StackPanel>
+                            </Grid>
+                        </StackPanel>
 
-		<!-- Launch game button -->
-		<Button Margin="0 16 0 0" Classes="Launch" Command="{Binding StartGame}" Content="Launch Killing Floor" Width="550" Height="64" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"  HorizontalAlignment="Center" VerticalAlignment="Bottom"/>
-	</StackPanel>
+                        <StackPanel IsEnabled="{Binding Config.SetResolution}">
+                            <TextBlock Classes="section" Text="Resolution"/>
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBox Width="120" Watermark="Width" Text="{Binding Config.ResX}"/>
+                                <TextBlock Text="x" VerticalAlignment="Center"/>
+                                <TextBox Width="120" Watermark="Height" Text="{Binding Config.ResY}"/>
+                            </StackPanel>
+                        </StackPanel>
+
+                        <StackPanel>
+                            <TextBlock Classes="section" Text="After launching or joining a server"/>
+                            <ComboBox Width="360" HorizontalAlignment="Left" SelectedIndex="{Binding Config.AfterLaunch}">
+                                <ComboBoxItem>Leave the launcher open (works everywhere)</ComboBoxItem>
+                                <ComboBoxItem>Minimize the launcher (not on tiling wms)</ComboBoxItem>
+                                <ComboBoxItem>Close the launcher</ComboBoxItem>
+                            </ComboBox>
+                        </StackPanel>
+
+                        <StackPanel>
+                            <TextBlock Classes="section" Text="Steam web api key"/>
+                            <Grid ColumnDefinitions="*,Auto">
+                                <TextBox Grid.Column="0" PasswordChar="•" Watermark="Used for the server list only" Text="{Binding Config.SteamApiKey}"/>
+                                <Button Grid.Column="1" Margin="8 0 0 0" Width="110" Content="Get a key"
+                                        HorizontalContentAlignment="Center" Command="{Binding GetApiKeyCommand}"/>
+                            </Grid>
+                        </StackPanel>
+
+                        <StackPanel>
+                            <TextBlock Classes="section" Text="Install directory"/>
+                            <Grid ColumnDefinitions="*,Auto">
+                                <TextBox Grid.Column="0" Watermark="usually steamapps/common/KillingFloor" Text="{Binding Config.GamePath}"/>
+                                <Button Grid.Column="1" Margin="8 0 0 0" Width="110" Content="Browse"
+                                        HorizontalContentAlignment="Center" Command="{Binding BrowseCommand}"/>
+                            </Grid>
+                        </StackPanel>
+                    </StackPanel>
+                </DockPanel>
+            </TabItem>
+        </TabControl>
+    </DockPanel>
 </Window>
