@@ -40,7 +40,7 @@ If Killing Floor is already running, steam has no way in: it drops launch argume
 
 The list itself has to come from the steam web api, because valves old keyless master server no longer resolves.  There are two ways to feed it:
 
-* **A list url.**  One machine polls steam with one api key and serves the result, and every launcher reads that.  Nobody else needs a key.  See below.
+* **A list url.**  One machine polls steam with one api key and serves the result, and every launcher reads that.  Nobody else needs a key.  Releases ship pointed at `https://everparser.com/kf-servers.json`, so out of the box there is nothing to set up.
 * **Your own api key.**  Grab one from [steamcommunity.com/dev/apikey](https://steamcommunity.com/dev/apikey) and paste it into the launcher once, it is stored with the rest of your settings.
 
 Player counts, ping and the padlock are read straight from the servers themselves over A2S either way, no key involved.

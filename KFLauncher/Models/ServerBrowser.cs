@@ -77,7 +77,7 @@ namespace KFLauncher.Models
         /// launcher gets the server list without an api key of their own.  Empty ships the api key
         /// route, see the README.
         /// </summary>
-        public const string DefaultListUrl = "";
+        public const string DefaultListUrl = "https://everparser.com/kf-servers.json";
 
         private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(20) };
         private static readonly byte[] InfoRequest = [0xFF, 0xFF, 0xFF, 0xFF, 0x54, .. Encoding.ASCII.GetBytes("Source Engine Query\0")];

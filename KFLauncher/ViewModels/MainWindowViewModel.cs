@@ -67,6 +67,13 @@ namespace KFLauncher.ViewModels
                 this.Config.FirstLaunch = false;
             }
 
+            // an empty url means "whatever this build ships with", so configs written before a
+            // relay existed pick it up too
+            if (this.Config.ServerListUrl.Length == 0)
+            {
+                this.Config.ServerListUrl = ServerBrowser.DefaultListUrl;
+            }
+
             if (this.Config.GamePath.Length == 0)
             {
                 this.Config.GamePath = KFConfig.DetectGamePath();
