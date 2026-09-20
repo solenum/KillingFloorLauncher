@@ -132,6 +132,7 @@ namespace KFLauncher.ViewModels
                             batch[i].Players = live[i]!.Players;
                             batch[i].Map = live[i]!.Map;
                             batch[i].Ping = live[i]!.Ping;
+                            batch[i].Passworded = live[i]!.Passworded;
                         }
 
                         done += batch.Length;
@@ -200,6 +201,12 @@ namespace KFLauncher.ViewModels
                     this.Status = $"Killing Floor is already running. Press ~ in game and paste: {server.ConsoleCommand} (copied to your clipboard)";
                     TraceLog.Log($"connect: game running, handed over console command {server.ConsoleCommand}");
 
+                    return;
+                }
+
+                if (!this.kfConfig.HasGameFiles)
+                {
+                    this.Status = "No System folder at the game path, set it on the Launch tab";
                     return;
                 }
 
@@ -282,6 +289,12 @@ namespace KFLauncher.ViewModels
             {
                 CancellationTokenSource? inFlightRefresh = this.refresh;
                 await Task.Run(() => SafeCancel(inFlightRefresh));
+
+                if (!this.kfConfig.HasGameFiles)
+                {
+                    this.Status = "No System folder at the game path, set it below";
+                    return;
+                }
 
                 this.Status = "Patching config files..";
                 await Task.Run(() =>

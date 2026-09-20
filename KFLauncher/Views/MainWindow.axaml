@@ -39,9 +39,13 @@
         <!-- Header -->
         <Grid DockPanel.Dock="Top" Margin="0 0 0 12" ColumnDefinitions="Auto,*">
             <Image Grid.Column="0" Source="/Assets/Logo.png" Height="52" HorizontalAlignment="Left"/>
-            <TextBlock Grid.Column="1" Text="{Binding Status}" Foreground="#8b93a1"
-                       VerticalAlignment="Center" HorizontalAlignment="Right" TextTrimming="CharacterEllipsis"/>
         </Grid>
+
+        <Border DockPanel.Dock="Bottom" Margin="0 10 0 0" Padding="10 6" CornerRadius="6"
+                Background="#141a24" BorderBrush="#242c3a" BorderThickness="1"
+                IsVisible="{Binding Status, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+            <TextBlock Text="{Binding Status}" Foreground="#c7cdd8" TextWrapping="Wrap"/>
+        </Border>
 
         <TabControl>
             <!-- Server browser -->
@@ -73,8 +77,10 @@
                                  IsVisible="{Binding IsRefreshing}"/>
 
                     <DataGrid ItemsSource="{Binding Servers}" IsReadOnly="True" CanUserSortColumns="True"
-                              SelectionMode="Single" GridLinesVisibility="Horizontal">
+                              SelectionMode="Single" GridLinesVisibility="Horizontal"
+                              DoubleTapped="OnServerDoubleTapped">
                         <DataGrid.Columns>
+                            <DataGridTextColumn Header="" Binding="{Binding Locked}" SortMemberPath="Passworded" Width="32"/>
                             <DataGridTextColumn Header="Server" Binding="{Binding Name}" Width="*"/>
                             <DataGridTextColumn Header="Map" Binding="{Binding Map}" Width="190"/>
                             <DataGridTextColumn Header="Players" Binding="{Binding Slots}" SortMemberPath="Players" Width="90"/>
@@ -128,16 +134,24 @@
                                     <CheckBox IsChecked="{Binding Config.DisableMovies}" Content="Disable movies"/>
                                     <CheckBox IsChecked="{Binding Config.SetResolution}" Content="Override resolution"/>
                                     <CheckBox IsChecked="{Binding Config.LockMouse}" Content="Lock mouse to game window (proton)"/>
+                                    <CheckBox IsChecked="{Binding Config.SetFov}" Content="Override field of view"/>
                                 </StackPanel>
                             </Grid>
                         </StackPanel>
 
-                        <StackPanel IsEnabled="{Binding Config.SetResolution}">
-                            <TextBlock Classes="section" Text="Resolution"/>
-                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                <TextBox Width="120" Watermark="Width" Text="{Binding Config.ResX}"/>
-                                <TextBlock Text="x" VerticalAlignment="Center"/>
-                                <TextBox Width="120" Watermark="Height" Text="{Binding Config.ResY}"/>
+                        <StackPanel Orientation="Horizontal" Spacing="32">
+                            <StackPanel IsEnabled="{Binding Config.SetResolution}">
+                                <TextBlock Classes="section" Text="Resolution"/>
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <TextBox Width="120" Watermark="Width" Text="{Binding Config.ResX}"/>
+                                    <TextBlock Text="x" VerticalAlignment="Center"/>
+                                    <TextBox Width="120" Watermark="Height" Text="{Binding Config.ResY}"/>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <StackPanel IsEnabled="{Binding Config.SetFov}">
+                                <TextBlock Classes="section" Text="Field of view"/>
+                                <TextBox Width="120" Watermark="85 is stock" Text="{Binding Config.Fov}"/>
                             </StackPanel>
                         </StackPanel>
 

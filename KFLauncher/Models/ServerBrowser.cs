@@ -32,10 +32,17 @@ namespace KFLauncher.Models
         private string map = string.Empty;
 
         [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(Locked))]
+        private bool passworded;
+
+        [ObservableProperty]
         [NotifyPropertyChangedFor(nameof(PingText))]
         private int ping = -1;
 
         public string Slots => $"{this.Players}/{this.MaxPlayers}";
+
+        /// <summary>A padlock for the grid, so nobody wastes a connect on a server they cannot enter.</summary>
+        public string Locked => this.Passworded ? "🔒" : string.Empty;
 
         public string PingText => this.Ping < 0 ? "—" : this.Ping.ToString();
 

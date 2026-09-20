@@ -13,6 +13,8 @@ The goal of this launcher is to inject the games configuration files with some s
 * **Uncapped frame-rate**
 * **Improved net speed / performance**
 * **Better mouse input**
+* **Field of view** (the stock 85 is cropped rather than widened on a widescreen monitor, and the game resets it at trader time, so the launcher sets it in the config *and* chains it onto the forward bind)
+* **Mouse locked to the game window** under proton, so the cursor cannot wander onto a second monitor mid-wave
 
 It also has a server browser, so you can find a server and jump straight into it without going through the in-game menus.
 
@@ -30,7 +32,7 @@ The tool will attempt to locate your games directory by crawling logical drives 
 Clicking the 'Launch Killing Floor' button will inject the config, and then start Killing Floor via the steam uri.
 
 ## Server browser
-The 'Servers' tab lists every Killing Floor server steam knows about, with live player counts, map and ping.  Hitting 'Connect' injects your config and then hands the server to steam (`steam://connect/ip:port`), which starts the game and joins it.
+The 'Servers' tab lists every Killing Floor server steam knows about, with live player counts, map and ping.  Password protected servers are marked with a padlock.  Hitting 'Connect' (or double clicking the row) injects your config and then hands the server to steam (`steam://connect/ip:port`), which starts the game and joins it.
 
 By default the launcher stays open once the game is on its way.  You can have it minimize or close instead under 'After launching' on the Launch tab, though note that minimizing stops the window being painted, and tiling window managers that keep it on screen anyway (bspwm, i3, ...) will show a stale window until you resize it, so leave it open or close it there.
 
@@ -52,6 +54,7 @@ Future plans include some of the following:
 * ~~The ability to select what patches you want this tool to apply~~
 * The ability to modify most/all in-game settings from the launcher
 * ~~An embeded server-browser, with ability to connect from launcher~~ (favorites and a password prompt still to come)
+* Joining a server without closing the game first, if steam ever grows a way in
 * ~~Make less ugly~~
 * Fix the many bugs that exist
 

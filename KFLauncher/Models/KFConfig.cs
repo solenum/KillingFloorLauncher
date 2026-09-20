@@ -117,6 +117,14 @@ namespace KFLauncher.Models
             {
                 this.FixResolution();
             }
+            if (this.config.SetFov)
+            {
+                this.FixFovEnable();
+            }
+            else
+            {
+                this.FixFovDisable();
+            }
             if (this.config.LockMouse)
             {
                 this.FixMouseGrab();
@@ -143,6 +151,35 @@ namespace KFLauncher.Models
             reg = PatchReg(reg, X11Driver, "DXGrab", "Y");
             File.WriteAllText(prefix, reg);
         }
+
+        /// <summary>
+        /// The game resets the view to DefaultFOV at trader time and on map change, so the value
+        /// goes in the config rather than the console.  Chaining it onto the forward bind, the way
+        /// netspeed is chained onto the mouse, puts it back the moment you move if something still
+        /// stomps on it.
+        /// </summary>
+        public void FixFovEnable()
+        {
+            Debug.WriteLine("Setting FOV");
+            string ini = this.UserIni;
+            ini = PatchIni(ini, "DesiredFOV", this.config.Fov);
+            ini = PatchIni(ini, "DefaultFOV", this.config.Fov);
+            ini = PatchIni(ini, "W", $"MoveForward | fov {this.config.Fov}");
+            this.UserIni = ini;
+        }
+
+        public void FixFovDisable()
+        {
+            Debug.WriteLine("Restoring default FOV");
+            string ini = this.UserIni;
+            ini = PatchIni(ini, "DesiredFOV", "85.000000");
+            ini = PatchIni(ini, "DefaultFOV", "85.000000");
+            ini = PatchIni(ini, "W", "MoveForward");
+            this.UserIni = ini;
+        }
+
+        /// <summary>False when the path points somewhere without a System folder to patch.</summary>
+        public bool HasGameFiles => Directory.Exists(Path.Combine(this.config.GamePath, "System"));
 
         void FixResolution()
         {

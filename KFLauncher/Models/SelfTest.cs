@@ -47,6 +47,14 @@ namespace KFLauncher.Models
             failed += Check(parsed?.GamePort == 7707, $"game port from extra data, got {parsed?.GamePort}");
             failed += Check(ServerBrowser.ParseInfo([0xFF, 0xFF], new IPEndPoint(IPAddress.Loopback, 1), 0) is null, "short reply rejected");
 
+            // fov lives in the config and rides along with the forward bind, since the game resets
+            // the view at trader time
+            string user = "DesiredFOV=85.000000\r\nDefaultFOV=85.000000\r\nW=MoveForward\r\nUp=MoveForward\r\n";
+            string withFov = KFConfig.PatchIni(KFConfig.PatchIni(user, "W", "MoveForward | fov 95"), "DefaultFOV", "95");
+            failed += Check(withFov.Contains("W=MoveForward | fov 95"), "forward bind carries the fov command");
+            failed += Check(withFov.Contains("Up=MoveForward\r\n"), "the other bind for the same command is untouched");
+            failed += Check(withFov.Contains("DefaultFOV=95"), "default fov set");
+
             // wine registry patching for the pointer grab
             const string section = @"[Software\\Wine\\X11 Driver]";
             string reg = section + " 123\n#time=abc\n\"GrabFullscreen\"=\"N\"\n\n[Software\\\\Wine\\\\Other] 1\n\"Keep\"=\"Me\"\n";

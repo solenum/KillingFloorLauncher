@@ -41,6 +41,13 @@ namespace KFLauncher.Models
         [ObservableProperty]
         private bool setResolution = false;
 
+        /// <summary>KF ships 85, which is cropped rather than widened on a widescreen monitor.</summary>
+        [ObservableProperty]
+        private bool setFov = false;
+
+        [ObservableProperty]
+        private string fov = "95";
+
         [ObservableProperty]
         private string resX = "1920";
 
