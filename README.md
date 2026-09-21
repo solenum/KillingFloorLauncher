@@ -18,6 +18,8 @@ The goal of this launcher is to inject the games configuration files with some s
 
 It also has a server browser, so you can find a server and jump straight into it without going through the in-game menus.
 
+![The server browser, with the details panel open on the selected server](docs/servers.png)
+
 Most of these improvements will be noticable right away.  The one caveat to this is the capped frame-rate in multiplayer, **which is uncapped as soon as you press any mouse button.**
 
 This tool by default works with the steam version of Killing Floor, but should work with non-steam versions if you supply the game directory path manually.
@@ -96,5 +98,6 @@ dotnet run --project KFLauncher/KFLauncher.csproj -- --selftest
 `--selftest` checks the parts that are easy to break quietly: the A2S info and player parsers, the server list parser, the ini patcher, the wine registry patcher and the running game detection.  Pushing a `v*` tag builds the self contained binaries for both platforms and puts them on a release.
 
 ### Screenshot
+The patches, and where the launcher gets its server list from:
 
-![Screenshot of the app](https://i.imgur.com/fnWiZNq.png)
+![The launch tab](docs/launch.png)
