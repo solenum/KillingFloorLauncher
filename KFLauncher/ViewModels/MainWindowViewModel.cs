@@ -7,6 +7,7 @@ using CommunityToolkit.Mvvm.Input;
 using KFLauncher.Models;
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Linq;
 using System.Net;
@@ -56,25 +57,45 @@ namespace KFLauncher.ViewModels
         [ObservableProperty]
         private string playersStatus = string.Empty;
 
+        /// <summary>Saved servers, kept as their own copies so the big refresh cannot drop them.</summary>
+        public ObservableCollection<ServerInfo> Favorites { get; } = new();
+
+        [ObservableProperty]
+        private string favoriteAddress = string.Empty;
+
+        [ObservableProperty]
+        private ServerInfo? selectedFavorite;
+
+        [ObservableProperty]
+        private string favoritesStatus = string.Empty;
+
         public MainWindowViewModel()
         {
             this.Config = InternalConfig.ReadConfig();
             this.kfConfig = new KFConfig(this.Config);
 
-            if (this.Config.FirstLaunch)
+            // a locked or unreadable ini must not cost us the window: the launch tab still works
+            try
             {
-                if (!InternalConfig.AppFileExists("KillingFloor.ini"))
+                if (this.Config.FirstLaunch)
                 {
-                    Debug.WriteLine("First launch, backing up KillingFloor.ini");
-                    InternalConfig.WriteFile("KillingFloor.ini", this.kfConfig.KillingFloorIni);
-                }
-                if (!InternalConfig.AppFileExists("User.ini"))
-                {
-                    Debug.WriteLine("First launch, backing up User.ini");
-                    InternalConfig.WriteFile("User.ini", this.kfConfig.UserIni);
-                }
+                    if (!InternalConfig.AppFileExists("KillingFloor.ini"))
+                    {
+                        Debug.WriteLine("First launch, backing up KillingFloor.ini");
+                        InternalConfig.WriteFile("KillingFloor.ini", this.kfConfig.KillingFloorIni);
+                    }
+                    if (!InternalConfig.AppFileExists("User.ini"))
+                    {
+                        Debug.WriteLine("First launch, backing up User.ini");
+                        InternalConfig.WriteFile("User.ini", this.kfConfig.UserIni);
+                    }
 
-                this.Config.FirstLaunch = false;
+                    this.Config.FirstLaunch = false;
+                }
+            }
+            catch (Exception ex)
+            {
+                TraceLog.Error("first launch backup", ex);
             }
 
             // an empty url means "whatever this build ships with", so configs written before a
@@ -98,6 +119,25 @@ namespace KFLauncher.ViewModels
                     this.OnPropertyChanged(nameof(this.NeedsServerSource));
                 }
             };
+
+            foreach (Favorite favorite in this.Config.Favorites)
+            {
+                if (IPEndPoint.TryParse(favorite.Query, out IPEndPoint? query))
+                {
+                    this.Favorites.Add(new ServerInfo
+                    {
+                        Query = query,
+                        GamePort = favorite.GamePort,
+                        Name = $"{query.Address}:{favorite.GamePort}",
+                        IsFavorite = true,
+                    });
+                }
+            }
+
+            if (this.Favorites.Count > 0)
+            {
+                _ = this.RefreshFavoritesCommand.ExecuteAsync(null);
+            }
 
             if (!this.NeedsServerSource)
             {
@@ -125,6 +165,11 @@ namespace KFLauncher.ViewModels
             try
             {
                 List<ServerInfo> servers = await ServerBrowser.FetchListAsync(this.Config.ServerListUrl, this.Config.SteamApiKey, cts.Token);
+                foreach (ServerInfo server in servers)
+                {
+                    server.IsFavorite = this.Favorites.Any(f => f.Query.Equals(server.Query));
+                }
+
                 this.allServers.Clear();
                 this.allServers.AddRange(servers);
                 this.ApplyFilter();
@@ -142,15 +187,10 @@ namespace KFLauncher.ViewModels
                     {
                         for (int i = 0; i < batch.Length; i++)
                         {
-                            if (live[i] is null)
+                            if (live[i] is not null)
                             {
-                                continue;
+                                batch[i].Apply(live[i]!);
                             }
-
-                            batch[i].Players = live[i]!.Players;
-                            batch[i].Map = live[i]!.Map;
-                            batch[i].Ping = live[i]!.Ping;
-                            batch[i].Passworded = live[i]!.Passworded;
                         }
 
                         done += batch.Length;
@@ -184,8 +224,14 @@ namespace KFLauncher.ViewModels
             }
             finally
             {
-                this.IsRefreshing = false;
-                this.refresh = null;
+                // a newer refresh may already own these, in which case they are not ours to clear
+                if (this.refresh == cts)
+                {
+                    this.IsRefreshing = false;
+                    this.refresh = null;
+                }
+
+                cts.Dispose();
             }
         }
 
@@ -341,6 +387,161 @@ namespace KFLauncher.ViewModels
         private void ApplyFilter()
         {
             this.Servers = this.allServers.Where(this.Passes).OrderByDescending(s => s.Players).ToList();
+        }
+        #endregion
+
+        #region favorites
+        /// <summary>The star in the server list.  Favorites are copies, so a refresh cannot drop them.</summary>
+        [RelayCommand]
+        private void ToggleFavorite(ServerInfo? server)
+        {
+            if (server is null)
+            {
+                return;
+            }
+
+            ServerInfo? saved = this.Favorites.FirstOrDefault(f => f.Query.Equals(server.Query));
+            if (saved is not null)
+            {
+                this.Favorites.Remove(saved);
+            }
+            else
+            {
+                this.Favorites.Add(server.Clone());
+            }
+
+            this.MarkFavorite(server.Query, saved is null);
+            this.SaveFavorites();
+        }
+
+        /// <summary>Add a server nobody has to find in the list first, by "ip:port" off a website.</summary>
+        [RelayCommand]
+        private async Task AddFavorite()
+        {
+            string text = this.FavoriteAddress.Trim();
+            if (text.Length == 0)
+            {
+                return;
+            }
+
+            // what people are handed is the game port, the one they would type after "open"
+            if (!text.Contains(':'))
+            {
+                text += ":7707";
+            }
+
+            if (!IPEndPoint.TryParse(text, out IPEndPoint? entered))
+            {
+                this.FavoritesStatus = $"{text} is not an ip and port";
+                return;
+            }
+
+            ushort gamePort = (ushort)entered.Port;
+            if (gamePort == 0)
+            {
+                this.FavoritesStatus = "That address needs a port, usually 7707";
+                return;
+            }
+
+            if (this.Favorites.Any(f => f.Query.Address.Equals(entered.Address) && f.GamePort == gamePort))
+            {
+                this.FavoritesStatus = "That server is already saved";
+                return;
+            }
+
+            this.FavoritesStatus = $"Asking {entered} who it is..";
+
+            // unreal answers A2S one port above the game, but plenty of hosts move it, so if the
+            // usual place is quiet try the port as given before giving up on it
+            IPEndPoint query = new(entered.Address, Math.Min(entered.Port + 1, 65535));
+            A2SInfo? live = await ServerBrowser.QueryAsync(query);
+            if (live is null)
+            {
+                query = entered;
+                live = await ServerBrowser.QueryAsync(query);
+            }
+
+            ServerInfo server = new()
+            {
+                Query = query,
+                GamePort = gamePort,
+                Name = $"{entered.Address}:{gamePort}",
+                IsFavorite = true,
+            };
+
+            if (live is not null)
+            {
+                server.Apply(live);
+            }
+
+            this.Favorites.Add(server);
+            this.MarkFavorite(server.Query, true);
+            this.SaveFavorites();
+            this.FavoriteAddress = string.Empty;
+            this.FavoritesStatus = live is null
+                ? $"Saved {server.Address}, which did not answer.  It will be checked again on refresh."
+                : $"Saved {server.Name}";
+        }
+
+        [RelayCommand]
+        private async Task RefreshFavorites()
+        {
+            if (this.Favorites.Count == 0)
+            {
+                this.FavoritesStatus = "Star a server in the list, or add one by address";
+                return;
+            }
+
+            this.FavoritesStatus = "Checking saved servers..";
+
+            ServerInfo[] saved = [.. this.Favorites];
+
+            A2SInfo?[] live;
+            try
+            {
+                live = await Task.WhenAll(saved.Select(server => ServerBrowser.QueryAsync(server.Query)));
+            }
+            catch (Exception ex)
+            {
+                // this one runs at startup, where nothing is watching the task it returns
+                TraceLog.Error("favorites refresh", ex);
+                this.FavoritesStatus = "Could not check the saved servers";
+                return;
+            }
+
+            for (int i = 0; i < saved.Length; i++)
+            {
+                if (live[i] is not null)
+                {
+                    saved[i].Apply(live[i]!);
+                }
+                else
+                {
+                    saved[i].Ping = -1;
+                    saved[i].Players = 0;
+                }
+            }
+
+            int up = live.Count(l => l is not null);
+            this.FavoritesStatus = $"{up} of {saved.Length} saved servers answered";
+
+            // a server can move its query port, or report a different game port than we saved
+            this.SaveFavorites();
+        }
+
+        /// <summary>Keep the star in the big list in step with the favorites tab, and back.</summary>
+        private void MarkFavorite(IPEndPoint query, bool favorite)
+        {
+            foreach (ServerInfo server in this.allServers.Where(s => s.Query.Equals(query)))
+            {
+                server.IsFavorite = favorite;
+            }
+        }
+
+        /// <summary>Assigning the list is what saves it, the config writes itself on a change.</summary>
+        private void SaveFavorites()
+        {
+            this.Config.Favorites = [.. this.Favorites.Select(f => new Favorite(f.Query.ToString(), f.GamePort))];
         }
         #endregion
 

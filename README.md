@@ -40,6 +40,12 @@ If the game is lacking config files or they are malformed, the tool will attempt
 ## Server browser
 The 'Servers' tab lists every Killing Floor server steam knows about, with live player counts, map and ping.  Password protected servers are marked with a padlock.  Clicking a server opens a panel underneath with its address, a copy button and who is playing right now, names, scores and how long they have been in.  Hitting 'Connect' (or double clicking the row) injects your config and then starts the game on that server.
 
+## Favorites
+The star in the first column saves a server.  The 'Favorites' tab lists what you have starred, refreshes it on its own (so you can see who is on your usual server without loading the whole list) and takes an address directly, `123.45.67.89:7707`, for servers steam does not list or that you were simply handed.  Saved servers live in your settings file and survive a refresh, a restart and the server dropping off steams list entirely.
+
+Give it the port you would type after `open` in the console.  Unreal answers server queries one port above the game, so that is tried first and the port as given second, and whatever the server reports for itself wins over either.
+
+## How connecting works
 That goes through `steam://run/1250//<ip>:<port>/` rather than the obvious `steam://connect`, because steam works out which game a `connect` link belongs to by querying the server, and KF servers do not report an app id it accepts: you get "app id specified by server is invalid" on either the game port or the query port.  Naming the app in the url and letting unreal take the address as a launch argument sidesteps the lookup entirely.
 
 By default the launcher stays open once the game is on its way.  You can have it minimize or close instead under 'After launching' on the Launch tab, though note that minimizing stops the window being painted, and tiling window managers that keep it on screen anyway (bspwm, i3, ...) will show a stale window until you resize it, so leave it open or close it there.

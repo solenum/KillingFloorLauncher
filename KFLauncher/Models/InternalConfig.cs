@@ -1,5 +1,4 @@
 using System;
-using System.Diagnostics;
 using System.IO;
 using System.Text.Json;
 
@@ -21,9 +20,10 @@ namespace KFLauncher.Models
                 // missing keys fall back to the property defaults, no merging needed
                 return json.Length > 0 ? JsonSerializer.Deserialize<JsonConfig>(json) ?? new() : new();
             }
-            catch (JsonException)
+            catch (Exception ex)
             {
-                Debug.WriteLine("Malformed config.json, using defaults");
+                // malformed, unreadable, whatever: defaults beat a launcher that will not open
+                TraceLog.Error("reading config.json", ex);
                 return new();
             }
         }
@@ -33,16 +33,36 @@ namespace KFLauncher.Models
             WriteFile("config.json", JsonSerializer.Serialize(config, Options));
         }
 
+        /// <summary>Saving settings is a side effect of typing, so it must never throw at the ui.</summary>
         public static void WriteFile(string name, string data)
         {
-            Directory.CreateDirectory(AppDataPath);
-            File.WriteAllText(Path.Combine(AppDataPath, name), data);
+            try
+            {
+                Directory.CreateDirectory(AppDataPath);
+                string path = Path.Combine(AppDataPath, name);
+
+                // via a temp file, so a crash mid write cannot cost someone their config backup
+                File.WriteAllText(path + ".tmp", data);
+                File.Move(path + ".tmp", path, true);
+            }
+            catch (Exception ex)
+            {
+                TraceLog.Error($"writing {name}", ex);
+            }
         }
 
         public static string ReadFile(string name)
         {
-            string path = Path.Combine(AppDataPath, name);
-            return File.Exists(path) ? File.ReadAllText(path) : string.Empty;
+            try
+            {
+                string path = Path.Combine(AppDataPath, name);
+                return File.Exists(path) ? File.ReadAllText(path) : string.Empty;
+            }
+            catch (Exception ex)
+            {
+                TraceLog.Error($"reading {name}", ex);
+                return string.Empty;
+            }
         }
 
         public static bool AppFileExists(string name)

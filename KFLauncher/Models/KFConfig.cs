@@ -402,17 +402,28 @@ namespace KFLauncher.Models
             }
 
             // people mark these read only to stop the game clobbering them, which would otherwise
-            // throw straight through the launch command
+            // throw straight through the launch command.  put it back afterwards, it was deliberate
+            bool readOnly = false;
             if (File.Exists(path))
             {
                 FileAttributes attributes = File.GetAttributes(path);
-                if (attributes.HasFlag(FileAttributes.ReadOnly))
+                readOnly = attributes.HasFlag(FileAttributes.ReadOnly);
+                if (readOnly)
                 {
                     File.SetAttributes(path, attributes & ~FileAttributes.ReadOnly);
                 }
             }
 
-            File.WriteAllText(path, ini);
+            // write beside it and swap, so a crash or a full disk cannot leave a half written
+            // config where the game (and the restore button) expects one
+            string temp = path + ".tmp";
+            File.WriteAllText(temp, ini);
+            File.Move(temp, path, true);
+
+            if (readOnly)
+            {
+                File.SetAttributes(path, File.GetAttributes(path) | FileAttributes.ReadOnly);
+            }
         }
 
         /// <summary>Steam drops launch arguments when the game already runs, so we need to know.</summary>
@@ -436,9 +447,9 @@ namespace KFLauncher.Models
                     return false;
                 }
             }
-            catch (IOException)
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
-                // /proc entries come and go while we walk them
+                // /proc entries come and go while we walk them, and some are not ours to read
             }
 
             Process[] all;

@@ -33,6 +33,15 @@
         <Style Selector="CheckBox">
             <Setter Property="Margin" Value="0 3"/>
         </Style>
+        <Style Selector="Button.star">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="FontSize" Value="17"/>
+            <Setter Property="Foreground" Value="#e6b450"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+        </Style>
     </Window.Styles>
 
     <DockPanel Margin="16">
@@ -83,6 +92,15 @@
                                   SelectedItem="{Binding SelectedServer}"
                                   DoubleTapped="OnServerDoubleTapped">
                             <DataGrid.Columns>
+                                <DataGridTemplateColumn Header="" Width="34" SortMemberPath="IsFavorite">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <Button Classes="star" Content="{Binding FavoriteIcon}" ToolTip.Tip="Save to favorites"
+                                                    Command="{Binding $parent[DataGrid].DataContext.ToggleFavoriteCommand}"
+                                                    CommandParameter="{Binding}"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
                                 <DataGridTextColumn Header="" Binding="{Binding Locked}" SortMemberPath="Passworded" Width="32"/>
                                 <DataGridTextColumn Header="Server" Binding="{Binding Name}" Width="*"/>
                                 <DataGridTextColumn Header="Map" Binding="{Binding Map}" Width="190"/>
@@ -137,6 +155,55 @@
                             </Grid>
                         </Border>
                     </Grid>
+                </DockPanel>
+            </TabItem>
+
+            <!-- Saved servers -->
+            <TabItem Header="Favorites">
+                <DockPanel Margin="0 8 0 0">
+                    <Grid DockPanel.Dock="Top" Margin="0 0 0 8" ColumnDefinitions="*,Auto,Auto">
+                        <TextBox Grid.Column="0" Watermark="Add a server by address, e.g. 123.45.67.89:7707" Text="{Binding FavoriteAddress}"/>
+                        <Button Grid.Column="1" Margin="8 0 0 0" Width="110" Classes="accent" Content="Add"
+                                HorizontalContentAlignment="Center" Command="{Binding AddFavoriteCommand}"/>
+                        <Button Grid.Column="2" Margin="8 0 0 0" Width="110" Content="Refresh"
+                                HorizontalContentAlignment="Center" Command="{Binding RefreshFavoritesCommand}"/>
+                    </Grid>
+
+                    <TextBlock DockPanel.Dock="Top" Margin="0 0 0 8" Foreground="#8b93a1" TextWrapping="Wrap"
+                               Text="{Binding FavoritesStatus}"/>
+
+                    <DataGrid ItemsSource="{Binding Favorites}" IsReadOnly="True" CanUserSortColumns="True"
+                              SelectionMode="Single" GridLinesVisibility="Horizontal"
+                              SelectedItem="{Binding SelectedFavorite}"
+                              DoubleTapped="OnServerDoubleTapped">
+                        <DataGrid.Columns>
+                            <DataGridTemplateColumn Header="" Width="34">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <Button Classes="star" Content="{Binding FavoriteIcon}" ToolTip.Tip="Remove from favorites"
+                                                Command="{Binding $parent[DataGrid].DataContext.ToggleFavoriteCommand}"
+                                                CommandParameter="{Binding}"/>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTextColumn Header="" Binding="{Binding Locked}" SortMemberPath="Passworded" Width="32"/>
+                            <DataGridTextColumn Header="Server" Binding="{Binding Name}" Width="*"/>
+                            <DataGridTextColumn Header="Address" Binding="{Binding Address}" Width="170"/>
+                            <DataGridTextColumn Header="Map" Binding="{Binding Map}" Width="160"/>
+                            <DataGridTextColumn Header="Players" Binding="{Binding Slots}" SortMemberPath="Players" Width="90"/>
+                            <DataGridTextColumn Header="Ping" Binding="{Binding PingText}" SortMemberPath="Ping" Width="70"/>
+                            <DataGridTemplateColumn Header="" Width="120">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <Button Content="Connect" Classes="accent" Margin="4 3"
+                                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                                Command="{Binding $parent[DataGrid].DataContext.ConnectCommand}"
+                                                CommandParameter="{Binding}"/>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
                 </DockPanel>
             </TabItem>
 

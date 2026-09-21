@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Text;
+using System.Text.Json;
 
 namespace KFLauncher.Models
 {
@@ -44,6 +45,12 @@ namespace KFLauncher.Models
             Str(info, "1.0");
             info.AddRange([0x80, 0x1B, 0x1E]);
 
+            // and the same reply with a colour code in the name, which is what servers really send
+            List<byte> coloured = [0xFF, 0xFF, 0xFF, 0xFF, 0x49, 0x11, 0x1B, 0xF8, 0x40, 0x40];
+            coloured.AddRange(info.GetRange(6, info.Count - 6));
+            A2SInfo? colourful = ServerBrowser.ParseInfo(coloured.ToArray(), new IPEndPoint(IPAddress.Loopback, 27015), 0);
+            failed += Check(colourful?.Name == "KF Server", $"colour codes are stripped from names, got {colourful?.Name}");
+
             A2SInfo? parsed = ServerBrowser.ParseInfo(info.ToArray(), new IPEndPoint(IPAddress.Loopback, 27015), 42);
             failed += Check(parsed is not null, "info reply parses");
             failed += Check(parsed?.Name == "KF Server", $"name parsed, got {parsed?.Name}");
@@ -51,6 +58,25 @@ namespace KFLauncher.Models
             failed += Check(parsed?.Players == 5 && parsed?.MaxPlayers == 6, $"players parsed, got {parsed?.Players}/{parsed?.MaxPlayers}");
             failed += Check(parsed?.GamePort == 7707, $"game port from extra data, got {parsed?.GamePort}");
             failed += Check(ServerBrowser.ParseInfo([0xFF, 0xFF], new IPEndPoint(IPAddress.Loopback, 1), 0) is null, "short reply rejected");
+
+            // a reply cut off right where the extra data field would start: no game port, and the
+            // query port must not be mistaken for one, that is a connect to the wrong port
+            A2SInfo? noEdf = ServerBrowser.ParseInfo(info.ToArray().AsSpan(0, info.Count - 4), new IPEndPoint(IPAddress.Loopback, 27015), 0);
+            failed += Check(noEdf?.GamePort == 0, $"an absent game port stays unknown, got {noEdf?.GamePort}");
+
+            ServerInfo server = new() { Query = new IPEndPoint(IPAddress.Loopback, 27015), Name = "old", GamePort = 7707 };
+            server.Apply(noEdf!);
+            failed += Check(server.GamePort == 7707, $"an unknown game port leaves the saved one alone, got {server.GamePort}");
+            failed += Check(server.Name == "KF Server" && server.MaxPlayers == 6, "the live reply refreshes name and slots");
+
+            server.Apply(parsed!);
+            failed += Check(server.GamePort == 7707, "a reported game port is taken");
+
+            // favorites are copies, so refreshing the big list cannot reach into the saved ones
+            server.IsFavorite = true;
+            ServerInfo copy = server.Clone();
+            server.Players = 99;
+            failed += Check(copy.IsFavorite && copy.Players != 99 && copy.Address == server.Address, "a favorite is its own copy");
 
             // fov lives in the config and rides along with the forward bind, since the game resets
             // the view at trader time
@@ -102,6 +128,11 @@ namespace KFLauncher.Models
             failed += Check(parsedPlayers?[0].TimeText == "22:39", $"time formatted, got {parsedPlayers?[0].TimeText}");
             failed += Check(parsedPlayers?[1].TimeText == "0:00", "a nan time does not blow up");
             failed += Check(ServerBrowser.ParsePlayers([0xFF, 0xFF, 0xFF, 0xFF, 0x44, 9, 0]) is { Count: 0 }, "a lying count does not run off the end");
+
+            // favorites are a record inside the settings file, which json has to round trip
+            JsonConfig config = new() { Favorites = [new Favorite("1.2.3.4:7708", 7707)] };
+            JsonConfig? reloaded = JsonSerializer.Deserialize<JsonConfig>(JsonSerializer.Serialize(config));
+            failed += Check(reloaded?.Favorites is [{ Query: "1.2.3.4:7708", GamePort: 7707 }], "favorites survive a save and load");
 
             // ini patching only touches whole keys at the start of a line
             string ini = "[Engine]\r\nMaxClientFrameRate=60\r\nQuality=3\r\nQ=QuickHeal\r\nMouseSamplingTime = 0.05\r\n";

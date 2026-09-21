@@ -18,11 +18,21 @@ namespace KFLauncher.Models
     {
         public required IPEndPoint Query { get; init; }
 
-        public required string Name { get; init; }
+        [ObservableProperty]
+        private string name = string.Empty;
 
-        public required int MaxPlayers { get; init; }
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(Slots))]
+        private int maxPlayers;
 
-        public required ushort GamePort { get; init; }
+        /// <summary>The port the game listens on, which is not always the one we query.</summary>
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(Address))]
+        private ushort gamePort;
+
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(FavoriteIcon))]
+        private bool isFavorite;
 
         [ObservableProperty]
         [NotifyPropertyChangedFor(nameof(Slots))]
@@ -40,6 +50,40 @@ namespace KFLauncher.Models
         private int ping = -1;
 
         public string Slots => $"{this.Players}/{this.MaxPlayers}";
+
+        /// <summary>The star in the first column, filled once the server is a favorite.</summary>
+        public string FavoriteIcon => this.IsFavorite ? "\u2605" : "\u2606";
+
+        /// <summary>Copy for the favorites tab, so it refreshes on its own without the big list.</summary>
+        public ServerInfo Clone() => new()
+        {
+            Query = this.Query,
+            Name = this.Name,
+            Map = this.Map,
+            GamePort = this.GamePort,
+            Players = this.Players,
+            MaxPlayers = this.MaxPlayers,
+            Ping = this.Ping,
+            Passworded = this.Passworded,
+            IsFavorite = this.IsFavorite,
+        };
+
+        /// <summary>Fold a live A2S reply in, keeping what the reply does not carry.</summary>
+        internal void Apply(A2SInfo live)
+        {
+            this.Name = live.Name.Length > 0 ? live.Name : this.Name;
+            this.Map = live.Map;
+            this.Players = live.Players;
+            this.MaxPlayers = live.MaxPlayers;
+            this.Ping = live.Ping;
+            this.Passworded = live.Passworded;
+
+            // only the optional extra data field carries it, so 0 means "keep what we had"
+            if (live.GamePort != 0)
+            {
+                this.GamePort = live.GamePort;
+            }
+        }
 
         /// <summary>A padlock for the grid, so nobody wastes a connect on a server they cannot enter.</summary>
         public string Locked => this.Passworded ? "🔒" : string.Empty;
@@ -264,8 +308,9 @@ namespace KFLauncher.Models
                 bool vac = data[i++] != 0;
                 ReadString(data, ref i);                // version
 
-                // the game port only comes through in the optional extra data field
-                ushort gamePort = (ushort)server.Port;
+                // the game port only comes through in the optional extra data field, and 0 tells
+                // the caller to keep the port it already had rather than connect to the query one
+                ushort gamePort = 0;
                 if (i < data.Length)
                 {
                     byte edf = data[i++];
@@ -277,24 +322,34 @@ namespace KFLauncher.Models
 
                 return new A2SInfo(name, map, players, maxPlayers, bots, passworded, vac, gamePort, ping);
             }
-            catch (ArgumentOutOfRangeException)
+            catch (Exception ex) when (ex is ArgumentOutOfRangeException or IndexOutOfRangeException)
             {
+                // a truncated or lying reply is just one dead server, not a dead refresh
                 return null;
             }
         }
 
+        /// <summary>
+        /// A null terminated string, minus unreals inline colour codes: an escape and three bytes
+        /// of rgb, which are not text and turn into a row of boxes in the grid if you keep them.
+        /// </summary>
         private static string ReadString(ReadOnlySpan<byte> data, ref int i)
         {
-            int start = i;
+            List<byte> value = new();
             while (i < data.Length && data[i] != 0)
             {
-                i++;
+                if (data[i] == 0x1B)
+                {
+                    i += 4;
+                    continue;
+                }
+
+                value.Add(data[i++]);
             }
 
-            string value = Encoding.UTF8.GetString(data.Slice(start, i - start));
             i++;
 
-            return value;
+            return Encoding.UTF8.GetString(value.ToArray()).Trim();
         }
 
         private static async Task<byte[]?> ReceiveAsync(UdpClient udp, int timeoutMs, CancellationToken ct)

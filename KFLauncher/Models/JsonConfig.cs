@@ -1,7 +1,11 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using System.Collections.Generic;
 
 namespace KFLauncher.Models
 {
+    /// <summary>A saved server.  The query port is rarely the game port, so both are kept.</summary>
+    public record Favorite(string Query, ushort GamePort);
+
     public partial class JsonConfig : ObservableObject
     {
         [ObservableProperty]
@@ -69,5 +73,9 @@ namespace KFLauncher.Models
         /// <summary>From https://steamcommunity.com/dev/apikey.  Only used without a list url.</summary>
         [ObservableProperty]
         private string steamApiKey = string.Empty;
+
+        /// <summary>Saved servers.  Replaced wholesale when it changes, which is what saves it.</summary>
+        [ObservableProperty]
+        private List<Favorite> favorites = [];
     }
 }
