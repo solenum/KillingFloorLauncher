@@ -199,6 +199,8 @@ namespace KFLauncher.Models
         /// </summary>
         public const string DefaultListUrl = "https://everparser.com/kf-servers.json";
 
+        private static readonly Encoding StrictUtf8 = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
+
         private const uint Single = 0xFFFFFFFF;
         private const uint Split = 0xFFFFFFFE;
 
@@ -439,7 +441,24 @@ namespace KFLauncher.Models
 
             i++;
 
-            return Encoding.UTF8.GetString(value.ToArray()).Trim();
+            return Decode(value.ToArray()).Trim();
+        }
+
+        /// <summary>
+        /// Server names are whatever the host typed.  Most are utf8, plenty are not, and decoding
+        /// one of those as utf8 leaves a row of replacement diamonds where the box drawing and the
+        /// accents were, so anything that is not valid utf8 is read as latin1 instead.
+        /// </summary>
+        private static string Decode(byte[] text)
+        {
+            try
+            {
+                return StrictUtf8.GetString(text);
+            }
+            catch (DecoderFallbackException)
+            {
+                return Encoding.Latin1.GetString(text);
+            }
         }
 
         /// <summary>

@@ -77,6 +77,12 @@
         <Style Selector="CheckBox">
             <Setter Property="Margin" Value="0 3"/>
         </Style>
+        <!-- a long server name used to wrap to three lines and push the row open, which with a
+             narrow window turned into one character per line -->
+        <Style Selector="DataGridCell TextBlock">
+            <Setter Property="TextWrapping" Value="NoWrap"/>
+            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+        </Style>
         <Style Selector="Button.star">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="BorderThickness" Value="0"/>
@@ -147,6 +153,7 @@
                     <Grid RowDefinitions="4*,Auto">
                         <DataGrid Grid.Row="0" x:Name="ServerGrid" ItemsSource="{Binding Servers}" IsReadOnly="True"
                                   CanUserSortColumns="True" SelectionMode="Single" GridLinesVisibility="Horizontal"
+                                  RowHeight="34"
                                   SelectedItem="{Binding SelectedServer}"
                                   Sorting="OnServerSorting"
                                   DoubleTapped="OnServerDoubleTapped">
@@ -160,12 +167,23 @@
                                         </DataTemplate>
                                     </DataGridTemplateColumn.CellTemplate>
                                 </DataGridTemplateColumn>
-                                <DataGridTextColumn Header="" Binding="{Binding Locked}" SortMemberPath="Passworded" Width="32"/>
-                                <DataGridTextColumn Header="Server" Binding="{Binding Name}" Width="*"/>
+                                <!-- the padlock rides with the name, an empty column of its own was
+                                     mostly empty -->
+                                <DataGridTemplateColumn Header="Server" Width="*" SortMemberPath="Name">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <DockPanel>
+                                                <TextBlock DockPanel.Dock="Left" Margin="0 0 6 0" Text="{Binding Locked}"
+                                                           IsVisible="{Binding Passworded}" VerticalAlignment="Center"/>
+                                                <TextBlock Text="{Binding Name}" VerticalAlignment="Center"/>
+                                            </DockPanel>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
                                 <DataGridTextColumn Header="Map" Binding="{Binding Map}" Width="170"/>
                                 <DataGridTextColumn Header="Difficulty" Binding="{Binding DifficultyText}" SortMemberPath="Difficulty" Width="110"/>
-                                <DataGridTextColumn Header="Players" Binding="{Binding Slots}" SortMemberPath="Players" Width="85"/>
-                                <DataGridTextColumn Header="Ping" Binding="{Binding PingText}" SortMemberPath="Ping" Width="65"/>
+                                <DataGridTextColumn Header="Players" Binding="{Binding Slots}" SortMemberPath="Players" Width="95"/>
+                                <DataGridTextColumn Header="Ping" Binding="{Binding PingText}" SortMemberPath="Ping" Width="70"/>
                                 <DataGridTemplateColumn Header="" Width="120">
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
@@ -213,7 +231,7 @@
                     </Border>
 
                     <DataGrid ItemsSource="{Binding Favorites}" IsReadOnly="True" CanUserSortColumns="True"
-                              SelectionMode="Single" GridLinesVisibility="Horizontal"
+                              SelectionMode="Single" GridLinesVisibility="Horizontal" RowHeight="34"
                               SelectedItem="{Binding SelectedFavorite}"
                               DoubleTapped="OnServerDoubleTapped">
                         <DataGrid.Columns>
@@ -226,8 +244,17 @@
                                     </DataTemplate>
                                 </DataGridTemplateColumn.CellTemplate>
                             </DataGridTemplateColumn>
-                            <DataGridTextColumn Header="" Binding="{Binding Locked}" SortMemberPath="Passworded" Width="32"/>
-                            <DataGridTextColumn Header="Server" Binding="{Binding Name}" Width="*"/>
+                            <DataGridTemplateColumn Header="Server" Width="*" SortMemberPath="Name">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <DockPanel>
+                                            <TextBlock DockPanel.Dock="Left" Margin="0 0 6 0" Text="{Binding Locked}"
+                                                       IsVisible="{Binding Passworded}" VerticalAlignment="Center"/>
+                                            <TextBlock Text="{Binding Name}" VerticalAlignment="Center"/>
+                                        </DockPanel>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
                             <DataGridTextColumn Header="Address" Binding="{Binding Address}" Width="170"/>
                             <DataGridTextColumn Header="Map" Binding="{Binding Map}" Width="160"/>
                             <DataGridTextColumn Header="Players" Binding="{Binding Slots}" SortMemberPath="Players" Width="90"/>

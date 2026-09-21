@@ -22,7 +22,7 @@ Keys the game has not written yet are added, in the right section, rather than s
 
 It also has a server browser, so you can find a server and jump straight into it without going through the in-game menus.
 
-![The server browser, with the details panel open on the selected server](docs/servers.png)
+![The server browser: the list, the filters, and the details panel open on the selected server](docs/servers.png)
 
 Most of these improvements will be noticable right away.  The one caveat to this is the capped frame-rate in multiplayer, **which is uncapped as soon as you press any mouse button.**
 
@@ -56,6 +56,8 @@ Window size, column widths and the sort you left it on are remembered.
 The star in the first column saves a server.  The 'Favorites' tab lists what you have starred, refreshes it on its own (so you can see who is on your usual server without loading the whole list) and takes an address directly, `123.45.67.89:7707` or a hostname, for servers steam does not list or that you were simply handed.  Saved servers live in your settings file, keep their password, and survive a refresh, a restart and the server dropping off steams list entirely.
 
 Give it the port you would type after `open` in the console.  Unreal answers server queries one port above the game, so that is tried first and the port as given second, and whatever the server reports for itself wins over either.
+
+![The favorites tab, with the details panel open on a saved server](docs/favorites.png)
 
 ## How connecting works
 That goes through `steam://run/1250//<ip>:<port>/` rather than the obvious `steam://connect`, because steam works out which game a `connect` link belongs to by querying the server, and KF servers do not report an app id it accepts: you get "app id specified by server is invalid" on either the game port or the query port.  Naming the app in the url and letting unreal take the address as a launch argument sidesteps the lookup entirely.
@@ -118,4 +120,4 @@ dotnet run --project KFLauncher/KFLauncher.csproj -- --selftest
 ### Screenshot
 The patches, and where the launcher gets its server list from:
 
-![The launch tab](docs/launch.png)
+![The launch tab, with the patch checkboxes and the paths](docs/launch.png)

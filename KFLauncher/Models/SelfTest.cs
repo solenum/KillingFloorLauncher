@@ -52,6 +52,12 @@ namespace KFLauncher.Models
             A2SInfo? colourful = ServerBrowser.ParseInfo(coloured.ToArray(), new IPEndPoint(IPAddress.Loopback, 27015), 0);
             failed += Check(colourful?.Name == "KF Server", $"colour codes are stripped from names, got {colourful?.Name}");
 
+            // a name in latin1, which is not valid utf8 and used to come through as diamonds
+            List<byte> latin1 = [0xFF, 0xFF, 0xFF, 0xFF, 0x49, 0x11, (byte)'W', (byte)'S', 0xBB, (byte)'6', (byte)'0', 0x00];
+            latin1.AddRange(info.GetRange(info.IndexOf(0) + 1, info.Count - info.IndexOf(0) - 1));
+            A2SInfo? mixed = ServerBrowser.ParseInfo(latin1.ToArray(), new IPEndPoint(IPAddress.Loopback, 27015), 0);
+            failed += Check(mixed?.Name == "WS\u00BB60", $"a name that is not utf8 is read as latin1, got {mixed?.Name}");
+
             A2SInfo? parsed = ServerBrowser.ParseInfo(info.ToArray(), new IPEndPoint(IPAddress.Loopback, 27015), 42);
             failed += Check(parsed is not null, "info reply parses");
             failed += Check(parsed?.Name == "KF Server", $"name parsed, got {parsed?.Name}");
