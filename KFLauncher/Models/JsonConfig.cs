@@ -4,7 +4,7 @@ using System.Collections.Generic;
 namespace KFLauncher.Models
 {
     /// <summary>A saved server.  The query port is rarely the game port, so both are kept.</summary>
-    public record Favorite(string Query, ushort GamePort);
+    public record Favorite(string Query, ushort GamePort, string? Password);
 
     public partial class JsonConfig : ObservableObject
     {
@@ -32,6 +32,21 @@ namespace KFLauncher.Models
         [ObservableProperty]
         private bool fixMouseInput = true;
 
+        /// <summary>The client clamps its own rate, so the caps go up with the configured speed.</summary>
+        [ObservableProperty]
+        private bool improveNetcode = true;
+
+        /// <summary>EAX, 3d sound and 64 channels instead of the safe defaults openal ships with.</summary>
+        [ObservableProperty]
+        private bool betterAudio = false;
+
+        /// <summary>The low health blur, which costs frames and hides zeds.</summary>
+        [ObservableProperty]
+        private bool disableBlur = false;
+
+        [ObservableProperty]
+        private bool noSwitchOnPickup = false;
+
         [ObservableProperty]
         private bool disableMovies = false;
 
@@ -58,6 +73,10 @@ namespace KFLauncher.Models
         [ObservableProperty]
         private string resY = "1080";
 
+        /// <summary>A wine prefix to patch for the mouse grab.  Empty finds steams own.</summary>
+        [ObservableProperty]
+        private string protonPrefix = string.Empty;
+
         [ObservableProperty]
         private bool firstLaunch = true;
 
@@ -77,5 +96,32 @@ namespace KFLauncher.Models
         /// <summary>Saved servers.  Replaced wholesale when it changes, which is what saves it.</summary>
         [ObservableProperty]
         private List<Favorite> favorites = [];
+
+        /// <summary>-1 for any, otherwise the difficulty the server list reports, 0 to 4.</summary>
+        [ObservableProperty]
+        private int difficultyFilter = -1;
+
+        [ObservableProperty]
+        private bool dedicatedOnly = false;
+
+        /// <summary>A server on another build is one you cannot join, so it is hidden by default.</summary>
+        [ObservableProperty]
+        private bool hideOtherVersions = true;
+
+        [ObservableProperty]
+        private double windowWidth = 920;
+
+        [ObservableProperty]
+        private double windowHeight = 680;
+
+        /// <summary>Column widths of the server grid, in order, so a resize is remembered.</summary>
+        [ObservableProperty]
+        private string serverColumns = string.Empty;
+
+        [ObservableProperty]
+        private string sortColumn = "Players";
+
+        [ObservableProperty]
+        private bool sortDescending = true;
     }
 }

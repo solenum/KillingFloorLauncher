@@ -6,6 +6,7 @@ using System.Diagnostics;
 using System.Net;
 using System.Net.Http;
 using System.Net.Sockets;
+using System.Linq;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
@@ -34,6 +35,36 @@ namespace KFLauncher.Models
         [NotifyPropertyChangedFor(nameof(FavoriteIcon))]
         private bool isFavorite;
 
+        /// <summary>Handed to the game as a url option when the server asks for one.</summary>
+        [ObservableProperty]
+        private string password = string.Empty;
+
+        /// <summary>0 to 4 off the server list tag, beginner up to hell on earth.  -1 is unknown.</summary>
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(DifficultyText))]
+        private int difficulty = -1;
+
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(Details))]
+        private string version = string.Empty;
+
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(Details))]
+        private bool dedicated = true;
+
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(Details))]
+        private bool secure;
+
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(Details))]
+        private int bots;
+
+        /// <summary>"l" or "w", as steam reports the box the server runs on.</summary>
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(Details))]
+        private string os = string.Empty;
+
         [ObservableProperty]
         [NotifyPropertyChangedFor(nameof(Slots))]
         private int players;
@@ -51,6 +82,26 @@ namespace KFLauncher.Models
 
         public string Slots => $"{this.Players}/{this.MaxPlayers}";
 
+        public string DifficultyText => this.Difficulty switch
+        {
+            0 => "Beginner",
+            1 => "Normal",
+            2 => "Hard",
+            3 => "Suicidal",
+            4 => "Hell on Earth",
+            _ => string.Empty,
+        };
+
+        /// <summary>The small print for the details panel, everything steam knows and we do not show.</summary>
+        public string Details => string.Join("  ·  ", new[]
+        {
+            this.Version.Length > 0 ? $"v{this.Version}" : string.Empty,
+            this.Dedicated ? "dedicated" : "listen server",
+            this.Secure ? "VAC" : "no VAC",
+            this.Os switch { "l" => "linux", "w" => "windows", _ => string.Empty },
+            this.Bots > 0 ? $"{this.Bots} bots" : string.Empty,
+        }.Where(part => part.Length > 0));
+
         /// <summary>The star in the first column, filled once the server is a favorite.</summary>
         public string FavoriteIcon => this.IsFavorite ? "\u2605" : "\u2606";
 
@@ -66,6 +117,13 @@ namespace KFLauncher.Models
             Ping = this.Ping,
             Passworded = this.Passworded,
             IsFavorite = this.IsFavorite,
+            Password = this.Password,
+            Difficulty = this.Difficulty,
+            Version = this.Version,
+            Dedicated = this.Dedicated,
+            Secure = this.Secure,
+            Bots = this.Bots,
+            Os = this.Os,
         };
 
         /// <summary>Fold a live A2S reply in, keeping what the reply does not carry.</summary>
@@ -77,6 +135,13 @@ namespace KFLauncher.Models
             this.MaxPlayers = live.MaxPlayers;
             this.Ping = live.Ping;
             this.Passworded = live.Passworded;
+            this.Bots = live.Bots;
+            this.Secure = live.Vac;
+
+            if (live.Version.Length > 0)
+            {
+                this.Version = live.Version;
+            }
 
             // only the optional extra data field carries it, so 0 means "keep what we had"
             if (live.GamePort != 0)
@@ -92,16 +157,19 @@ namespace KFLauncher.Models
 
         public string Address => $"{this.Query.Address}:{this.GamePort}";
 
+        /// <summary>Unreal takes the password as a url option, which is the only way past a padlock.</summary>
+        private string Option => this.Password.Length > 0 ? $"?password={this.Password}" : string.Empty;
+
         /// <summary>Starts the game on the server.  Ignored by steam if the game already runs.</summary>
         // steam://connect makes steam query the server for the app id, and asking the game port for
         // it gets "app id specified by server is invalid", so name the app ourselves and hand the
         // address over as a launch argument, which is how unreal opens a url.
-        public string LaunchUri => $"steam://run/{ServerBrowser.AppId}//{this.Query.Address}:{this.GamePort}/";
+        public string LaunchUri => $"steam://run/{ServerBrowser.AppId}//{this.Query.Address}:{this.GamePort}{this.Option}/";
 
         /// <summary>For a game that is already up: press ~ and paste.  Steam has no route in,
         /// steam://connect asks the server for its app id and KF servers do not report a usable
         /// one, on either port ("app id specified by server is invalid").</summary>
-        public string ConsoleCommand => $"open {this.Query.Address}:{this.GamePort}";
+        public string ConsoleCommand => $"open {this.Query.Address}:{this.GamePort}{this.Option}";
     }
 
     /// <summary>One player on a server, from A2S_PLAYER.</summary>
@@ -113,7 +181,7 @@ namespace KFLauncher.Models
     }
 
     /// <summary>Live values straight off a server, used to refresh a <see cref="ServerInfo"/>.</summary>
-    internal record A2SInfo(string Name, string Map, int Players, int MaxPlayers, int Bots, bool Passworded, bool Vac, ushort GamePort, int Ping);
+    internal record A2SInfo(string Name, string Map, int Players, int MaxPlayers, int Bots, bool Passworded, bool Vac, string Version, ushort GamePort, int Ping);
 
     /// <summary>
     /// Server list from the steam web api, live player counts and ping over A2S.
@@ -130,6 +198,9 @@ namespace KFLauncher.Models
         /// route, see the README.
         /// </summary>
         public const string DefaultListUrl = "https://everparser.com/kf-servers.json";
+
+        private const uint Single = 0xFFFFFFFF;
+        private const uint Split = 0xFFFFFFFE;
 
         private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(20) };
         private static readonly byte[] InfoRequest = [0xFF, 0xFF, 0xFF, 0xFF, 0x54, .. Encoding.ASCII.GetBytes("Source Engine Query\0")];
@@ -183,10 +254,29 @@ namespace KFLauncher.Models
                     GamePort = server.TryGetProperty("gameport", out JsonElement port) ? (ushort)port.GetInt32() : (ushort)query.Port,
                     Players = server.TryGetProperty("players", out JsonElement players) ? players.GetInt32() : 0,
                     Map = (server.TryGetProperty("map", out JsonElement map) ? map.GetString() : null) ?? string.Empty,
+                    Bots = server.TryGetProperty("bots", out JsonElement bots) ? bots.GetInt32() : 0,
+                    Version = (server.TryGetProperty("version", out JsonElement version) ? version.GetString() : null) ?? string.Empty,
+                    Secure = server.TryGetProperty("secure", out JsonElement secure) && secure.GetBoolean(),
+                    Dedicated = !server.TryGetProperty("dedicated", out JsonElement dedicated) || dedicated.GetBoolean(),
+                    Os = (server.TryGetProperty("os", out JsonElement os) ? os.GetString() : null) ?? string.Empty,
+                    Difficulty = ParseDifficulty(server.TryGetProperty("gametype", out JsonElement tags) ? tags.GetString() : null),
                 });
             }
 
             return servers;
+        }
+
+        /// <summary>
+        /// KF puts its difficulty in the server list tag, as "d;0;2": dedicated or listen, a flag
+        /// we have no use for, and the difficulty from 0 (beginner) to 4 (hell on earth).
+        /// </summary>
+        internal static int ParseDifficulty(string? gametype)
+        {
+            string[] parts = (gametype ?? string.Empty).Split(';');
+
+            return parts.Length > 2 && int.TryParse(parts[2], out int difficulty) && difficulty is >= 0 and <= 4
+                ? difficulty
+                : -1;
         }
 
         /// <summary>Query one server directly for its current state, timing the round trip as ping.</summary>
@@ -306,7 +396,7 @@ namespace KFLauncher.Models
                 i += 2;                                 // server type, environment
                 bool passworded = data[i++] != 0;
                 bool vac = data[i++] != 0;
-                ReadString(data, ref i);                // version
+                string version = ReadString(data, ref i);
 
                 // the game port only comes through in the optional extra data field, and 0 tells
                 // the caller to keep the port it already had rather than connect to the query one
@@ -320,7 +410,7 @@ namespace KFLauncher.Models
                     }
                 }
 
-                return new A2SInfo(name, map, players, maxPlayers, bots, passworded, vac, gamePort, ping);
+                return new A2SInfo(name, map, players, maxPlayers, bots, passworded, vac, version, gamePort, ping);
             }
             catch (Exception ex) when (ex is ArgumentOutOfRangeException or IndexOutOfRangeException)
             {
@@ -352,20 +442,78 @@ namespace KFLauncher.Models
             return Encoding.UTF8.GetString(value.ToArray()).Trim();
         }
 
+        /// <summary>
+        /// One reply, which is not always one packet: a player list off a full server does not fit
+        /// in a datagram and comes back in numbered pieces to be glued together.
+        /// </summary>
         private static async Task<byte[]?> ReceiveAsync(UdpClient udp, int timeoutMs, CancellationToken ct)
         {
             using CancellationTokenSource timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
             timeout.CancelAfter(timeoutMs);
 
+            Dictionary<byte, byte[]> pieces = new();
+
             try
             {
-                UdpReceiveResult result = await udp.ReceiveAsync(timeout.Token);
-                return result.Buffer;
+                while (true)
+                {
+                    byte[] packet = (await udp.ReceiveAsync(timeout.Token)).Buffer;
+                    if (packet.Length < 4)
+                    {
+                        continue;
+                    }
+
+                    uint header = BinaryPrimitives.ReadUInt32LittleEndian(packet);
+                    if (header == Single)
+                    {
+                        return packet;
+                    }
+
+                    // a split reply: an id, how many pieces there are and which one this is
+                    if (header != Split || packet.Length < 12)
+                    {
+                        continue;
+                    }
+
+                    // the top bit of the id means the payload is compressed, which no KF server does
+                    if ((BinaryPrimitives.ReadUInt32LittleEndian(packet.AsSpan(4)) & 0x80000000) != 0)
+                    {
+                        return null;
+                    }
+
+                    pieces[packet[9]] = packet;
+                    if (pieces.Count >= packet[8])
+                    {
+                        return Reassemble([.. pieces.OrderBy(piece => piece.Key).Select(piece => piece.Value)]);
+                    }
+                }
             }
             catch (Exception ex) when (ex is OperationCanceledException or SocketException)
             {
                 return null;
             }
+        }
+
+        /// <summary>
+        /// Glue the pieces of a split reply back into the single packet it would have been.  Most
+        /// games put a payload size after the piece number, some do not, and the giveaway is
+        /// whether the first piece carries the ordinary reply header where it should.
+        /// </summary>
+        internal static byte[]? Reassemble(IReadOnlyList<byte[]> pieces)
+        {
+            byte[]? first = pieces.FirstOrDefault(piece => piece.Length > 9 && piece[9] == 0);
+            if (first is null || pieces.Count != first[8])
+            {
+                return null;
+            }
+
+            int offset = first.Length >= 16 && BinaryPrimitives.ReadUInt32LittleEndian(first.AsSpan(12)) == Single ? 12 : 10;
+            if (pieces.Any(piece => piece.Length < offset))
+            {
+                return null;
+            }
+
+            return [.. pieces.SelectMany(piece => piece.Skip(offset))];
         }
     }
 }

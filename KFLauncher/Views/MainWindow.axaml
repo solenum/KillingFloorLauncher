@@ -1,6 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:KFLauncher.ViewModels"
+        xmlns:models="using:KFLauncher.Models"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d" d:DesignWidth="920" d:DesignHeight="680"
@@ -10,6 +11,49 @@
         Title="KFLauncher"
         Background="#0b0e14"
         Width="920" Height="680" MinWidth="760" MinHeight="560">
+
+    <Window.Resources>
+        <!-- the same details panel under both server lists, whichever row is selected -->
+        <DataTemplate x:Key="ServerDetails" DataType="models:ServerInfo">
+            <Grid ColumnDefinitions="340,*">
+                <StackPanel Grid.Column="0" Margin="0 0 16 0" Spacing="8">
+                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold"
+                               TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis"/>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBlock Text="{Binding Address}" Foreground="#8b93a1" VerticalAlignment="Center"/>
+                        <Button Content="Copy" Padding="10 2"
+                                Command="{Binding $parent[Window].DataContext.CopyAddressCommand}"
+                                CommandParameter="{Binding}"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                        <TextBlock Text="{Binding Map}" Foreground="#8b93a1"/>
+                        <TextBlock Text="{Binding DifficultyText}" Foreground="#8b93a1"/>
+                        <TextBlock Text="{Binding Slots}" Foreground="#8b93a1"/>
+                        <TextBlock Text="{Binding PingText}" Foreground="#8b93a1"/>
+                    </StackPanel>
+                    <TextBlock Text="{Binding Details}" Foreground="#5f6672" FontSize="11"/>
+                    <TextBox Watermark="Password, if the server wants one" PasswordChar="&#x2022;"
+                             Text="{Binding Password}"/>
+                    <Button Classes="accent" Content="Connect" Padding="20 4" HorizontalAlignment="Left"
+                            Command="{Binding $parent[Window].DataContext.ConnectCommand}"
+                            CommandParameter="{Binding}"/>
+                </StackPanel>
+
+                <DockPanel Grid.Column="1">
+                    <TextBlock DockPanel.Dock="Top" Margin="0 0 0 6" Foreground="#8b93a1"
+                               Text="{Binding $parent[Window].DataContext.PlayersStatus}"/>
+                    <DataGrid ItemsSource="{Binding $parent[Window].DataContext.Players}" IsReadOnly="True"
+                              CanUserSortColumns="True" MinHeight="60" MaxHeight="150" GridLinesVisibility="None">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Player" Binding="{Binding Name}" Width="*"/>
+                            <DataGridTextColumn Header="Score" Binding="{Binding Score}" Width="90"/>
+                            <DataGridTextColumn Header="Time" Binding="{Binding TimeText}" SortMemberPath="Time" Width="90"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+            </Grid>
+        </DataTemplate>
+    </Window.Resources>
 
     <Window.Styles>
         <Style Selector="Button.accent">
@@ -75,21 +119,36 @@
                         </StackPanel>
                     </Border>
 
-                    <Grid DockPanel.Dock="Top" Margin="0 0 0 8" ColumnDefinitions="*,Auto,Auto,Auto">
-                        <TextBox Grid.Column="0" Watermark="Filter by server name or map" Text="{Binding Filter}"/>
-                        <CheckBox Grid.Column="1" Margin="12 0 0 0" IsChecked="{Binding HideEmpty}" Content="Hide empty"/>
-                        <CheckBox Grid.Column="2" Margin="12 0 0 0" IsChecked="{Binding HideFull}" Content="Hide full"/>
-                        <Button Grid.Column="3" Margin="12 0 0 0" Width="110" Classes="accent" Content="Refresh"
+                    <Grid DockPanel.Dock="Top" Margin="0 0 0 8" ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
+                        <TextBox Grid.Row="0" Grid.Column="0" Watermark="Filter by server name or map" Text="{Binding Filter}"/>
+                        <Button Grid.Row="0" Grid.Column="1" Margin="12 0 0 0" Width="110" Classes="accent" Content="Refresh"
                                 Command="{Binding RefreshServersCommand}" IsEnabled="{Binding !IsRefreshing}"/>
+
+                        <StackPanel Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Margin="0 8 0 0"
+                                    Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                            <CheckBox IsChecked="{Binding HideEmpty}" Content="Hide empty"/>
+                            <CheckBox IsChecked="{Binding HideFull}" Content="Hide full"/>
+                            <CheckBox IsChecked="{Binding Config.DedicatedOnly}" Content="Dedicated only"/>
+                            <CheckBox IsChecked="{Binding Config.HideOtherVersions}" Content="Hide other versions"/>
+                            <ComboBox Width="150" SelectedIndex="{Binding DifficultyIndex}" VerticalAlignment="Center">
+                                <ComboBoxItem>Any difficulty</ComboBoxItem>
+                                <ComboBoxItem>Beginner</ComboBoxItem>
+                                <ComboBoxItem>Normal</ComboBoxItem>
+                                <ComboBoxItem>Hard</ComboBoxItem>
+                                <ComboBoxItem>Suicidal</ComboBoxItem>
+                                <ComboBoxItem>Hell on Earth</ComboBoxItem>
+                            </ComboBox>
+                        </StackPanel>
                     </Grid>
 
                     <ProgressBar DockPanel.Dock="Top" Margin="0 0 0 8" Height="2" IsIndeterminate="True"
                                  IsVisible="{Binding IsRefreshing}"/>
 
                     <Grid RowDefinitions="4*,Auto">
-                        <DataGrid Grid.Row="0" ItemsSource="{Binding Servers}" IsReadOnly="True" CanUserSortColumns="True"
-                                  SelectionMode="Single" GridLinesVisibility="Horizontal"
+                        <DataGrid Grid.Row="0" x:Name="ServerGrid" ItemsSource="{Binding Servers}" IsReadOnly="True"
+                                  CanUserSortColumns="True" SelectionMode="Single" GridLinesVisibility="Horizontal"
                                   SelectedItem="{Binding SelectedServer}"
+                                  Sorting="OnServerSorting"
                                   DoubleTapped="OnServerDoubleTapped">
                             <DataGrid.Columns>
                                 <DataGridTemplateColumn Header="" Width="34" SortMemberPath="IsFavorite">
@@ -103,9 +162,10 @@
                                 </DataGridTemplateColumn>
                                 <DataGridTextColumn Header="" Binding="{Binding Locked}" SortMemberPath="Passworded" Width="32"/>
                                 <DataGridTextColumn Header="Server" Binding="{Binding Name}" Width="*"/>
-                                <DataGridTextColumn Header="Map" Binding="{Binding Map}" Width="190"/>
-                                <DataGridTextColumn Header="Players" Binding="{Binding Slots}" SortMemberPath="Players" Width="90"/>
-                                <DataGridTextColumn Header="Ping" Binding="{Binding PingText}" SortMemberPath="Ping" Width="70"/>
+                                <DataGridTextColumn Header="Map" Binding="{Binding Map}" Width="170"/>
+                                <DataGridTextColumn Header="Difficulty" Binding="{Binding DifficultyText}" SortMemberPath="Difficulty" Width="110"/>
+                                <DataGridTextColumn Header="Players" Binding="{Binding Slots}" SortMemberPath="Players" Width="85"/>
+                                <DataGridTextColumn Header="Ping" Binding="{Binding PingText}" SortMemberPath="Ping" Width="65"/>
                                 <DataGridTemplateColumn Header="" Width="120">
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
@@ -119,40 +179,13 @@
                             </DataGrid.Columns>
                         </DataGrid>
 
-                        <!-- details for the selected row, asked of the server itself -->
+                        <!-- details for the selected row, asked of the server itself, and kept
+                             up to date for as long as it stays selected -->
                         <Border Grid.Row="1" Margin="0 10 0 0" Padding="12" CornerRadius="6"
                                 Background="#141a24" BorderBrush="#242c3a" BorderThickness="1"
                                 IsVisible="{Binding SelectedServer, Converter={x:Static ObjectConverters.IsNotNull}}">
-                            <Grid ColumnDefinitions="320,*">
-                                <StackPanel Grid.Column="0" Margin="0 0 16 0" Spacing="8">
-                                    <TextBlock Text="{Binding SelectedServer.Name}" FontWeight="SemiBold"
-                                               TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis"/>
-                                    <StackPanel Orientation="Horizontal" Spacing="8">
-                                        <TextBlock Text="{Binding SelectedServer.Address}" Foreground="#8b93a1" VerticalAlignment="Center"/>
-                                        <Button Content="Copy" Padding="10 2" Command="{Binding CopyAddressCommand}"/>
-                                    </StackPanel>
-                                    <StackPanel Orientation="Horizontal" Spacing="12">
-                                        <TextBlock Text="{Binding SelectedServer.Map}" Foreground="#8b93a1"/>
-                                        <TextBlock Text="{Binding SelectedServer.Slots}" Foreground="#8b93a1"/>
-                                        <TextBlock Text="{Binding SelectedServer.PingText}" Foreground="#8b93a1"/>
-                                    </StackPanel>
-                                    <Button Classes="accent" Content="Connect" Padding="20 4" HorizontalAlignment="Left"
-                                            Command="{Binding ConnectCommand}" CommandParameter="{Binding SelectedServer}"/>
-                                </StackPanel>
-
-                                <DockPanel Grid.Column="1">
-                                    <TextBlock DockPanel.Dock="Top" Margin="0 0 0 6" Foreground="#8b93a1"
-                                               Text="{Binding PlayersStatus}"/>
-                                    <DataGrid ItemsSource="{Binding Players}" IsReadOnly="True" CanUserSortColumns="True"
-                                              MinHeight="60" MaxHeight="150" GridLinesVisibility="None">
-                                        <DataGrid.Columns>
-                                            <DataGridTextColumn Header="Player" Binding="{Binding Name}" Width="*"/>
-                                            <DataGridTextColumn Header="Score" Binding="{Binding Score}" Width="90"/>
-                                            <DataGridTextColumn Header="Time" Binding="{Binding TimeText}" SortMemberPath="Time" Width="90"/>
-                                        </DataGrid.Columns>
-                                    </DataGrid>
-                                </DockPanel>
-                            </Grid>
+                            <ContentControl Content="{Binding SelectedServer}"
+                                            ContentTemplate="{StaticResource ServerDetails}"/>
                         </Border>
                     </Grid>
                 </DockPanel>
@@ -171,6 +204,13 @@
 
                     <TextBlock DockPanel.Dock="Top" Margin="0 0 0 8" Foreground="#8b93a1" TextWrapping="Wrap"
                                Text="{Binding FavoritesStatus}"/>
+
+                    <Border DockPanel.Dock="Bottom" Margin="0 10 0 0" Padding="12" CornerRadius="6"
+                            Background="#141a24" BorderBrush="#242c3a" BorderThickness="1"
+                            IsVisible="{Binding SelectedFavorite, Converter={x:Static ObjectConverters.IsNotNull}}">
+                        <ContentControl Content="{Binding SelectedFavorite}"
+                                        ContentTemplate="{StaticResource ServerDetails}"/>
+                    </Border>
 
                     <DataGrid ItemsSource="{Binding Favorites}" IsReadOnly="True" CanUserSortColumns="True"
                               SelectionMode="Single" GridLinesVisibility="Horizontal"
@@ -216,11 +256,14 @@
 
                     <StackPanel Spacing="16">
                         <StackPanel Orientation="Horizontal" Spacing="8">
-                            <Button Content="Detect game path" Width="200" HorizontalContentAlignment="Center"
+                            <Button Content="Detect game path" Width="170" HorizontalContentAlignment="Center"
                                     Command="{Binding DetectConfigCommand}"/>
-                            <Button Content="Use recommended" Width="200" HorizontalContentAlignment="Center"
+                            <Button Content="Use recommended" Width="170" HorizontalContentAlignment="Center"
                                     Command="{Binding SetRecommendedCommand}"/>
-                            <Button Content="Restore original config files" Width="240" HorizontalContentAlignment="Center"
+                            <Button Content="Back up config now" Width="180" HorizontalContentAlignment="Center"
+                                    ToolTip.Tip="Replaces the backup taken on first launch with the files as they are now"
+                                    Command="{Binding BackupConfigCommand}"/>
+                            <Button Content="Restore backup" Width="160" HorizontalContentAlignment="Center"
                                     Command="{Binding RestoreConfigCommand}"/>
                         </StackPanel>
 
@@ -233,11 +276,15 @@
                                     <CheckBox IsChecked="{Binding Config.DisableMusic}" Content="Disable music"/>
                                     <CheckBox IsChecked="{Binding Config.SkipIntro}" Content="Skip intro"/>
                                     <CheckBox IsChecked="{Binding Config.QuickHeal}" Content="Bind Q quickheal"/>
+                                    <CheckBox IsChecked="{Binding Config.BetterAudio}" Content="Better audio (EAX, 3D sound, 64 channels)"/>
+                                    <CheckBox IsChecked="{Binding Config.DisableBlur}" Content="Disable the low health blur"/>
                                 </StackPanel>
                                 <StackPanel Grid.Column="1">
                                     <CheckBox IsChecked="{Binding Config.IncreaseCacheLimit}" Content="Increase cache limit"/>
                                     <CheckBox IsChecked="{Binding Config.UnlockFramerate}" Content="Unlock framerate"/>
+                                    <CheckBox IsChecked="{Binding Config.ImproveNetcode}" Content="Raise net speed (and its caps)"/>
                                     <CheckBox IsChecked="{Binding Config.FixMouseInput}" Content="Fix mouse input"/>
+                                    <CheckBox IsChecked="{Binding Config.NoSwitchOnPickup}" Content="Never switch weapon on pickup"/>
                                     <CheckBox IsChecked="{Binding Config.DisableMovies}" Content="Disable movies"/>
                                     <CheckBox IsChecked="{Binding Config.SetResolution}" Content="Override resolution"/>
                                     <CheckBox IsChecked="{Binding Config.LockMouse}" Content="Lock mouse to game window (proton)"/>
@@ -288,6 +335,8 @@
                                 <Button Grid.Column="1" Margin="8 0 0 0" Width="110" Content="Browse"
                                         HorizontalContentAlignment="Center" Command="{Binding BrowseCommand}"/>
                             </Grid>
+                            <TextBox Margin="0 8 0 0" Text="{Binding Config.ProtonPrefix}"
+                                     Watermark="Wine prefix for the mouse lock, empty finds steams own (compatdata/1250/pfx)"/>
                         </StackPanel>
                     </StackPanel>
                 </DockPanel>

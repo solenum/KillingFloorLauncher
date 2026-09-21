@@ -9,12 +9,16 @@ Both are single self-contained files, no runtime to install: download, run it (o
 # What is this?
 This is a standalone-launcher for Killing Floor (1).
 
-The goal of this launcher is to inject the games configuration files with some sane values to provide a better playing experience.  These improvements are (currently):
-* **Uncapped frame-rate**
-* **Improved net speed / performance**
-* **Better mouse input**
+The goal of this launcher is to inject the games configuration files with some sane values to provide a better playing experience.  Every one of these is a checkbox on the Launch tab, and every one of them goes back to the stock value when you untick it:
+* **Uncapped frame-rate**, and the detail-dropping frame rate smoothing that reads as stutter turned off
+* **Improved net speed**, including the two rate caps in the config that were quietly clamping it: the game will not go above `MaxClientRate` and `MaxInternetClientRate` no matter what netspeed you ask for
+* **Better mouse input**: smoothing and acceleration off, sampling matched to a 1000Hz mouse, and `ReduceMouseLag` *off*, which despite the name is a full gpu flush every frame
 * **Field of view** (the stock 85 is cropped rather than widened on a widescreen monitor, and the game resets it at trader time, so the launcher sets it in the config *and* chains it onto the forward bind)
 * **Mouse locked to the game window** under proton, so the cursor cannot wander onto a second monitor mid-wave
+* **Better audio**: EAX, 3D sound and 64 channels instead of the safe defaults OpenAL ships with
+* **No low-health blur**, and **no weapon switching when you walk over a pickup**
+
+Keys the game has not written yet are added, in the right section, rather than silently skipped, and a key that means one thing in one section and another elsewhere (`MaxClientRate` is the net driver *and* the demo recorder) is only touched where it counts.  Binds are yours: the fov and netspeed commands are hung off the end of whatever you already have bound and taken back off cleanly, and a key you have bound to something of your own is left alone entirely.
 
 It also has a server browser, so you can find a server and jump straight into it without going through the in-game menus.
 
@@ -35,13 +39,21 @@ The tool finds your install by reading steams own library index (`libraryfolders
 
 Clicking 'Launch Killing Floor' injects the config and starts the game through steam.
 
+Your config files are backed up the first time the launcher runs, and 'Restore backup' puts them back.  If that first backup caught them in a state, or you have since set the game up the way you like it, 'Back up config now' replaces the backup with the files as they stand.
+
+Under proton the mouse lock needs the wine prefix the game runs in.  That is found automatically for a steam copy; for anything else (a non-steam shortcut, lutris, your own `WINEPREFIX`) there is a box for it under the install directory.
+
 If the game is lacking config files or they are malformed, the tool will attempt to generate a default one (based on the default configuration the game generates for new installations), it will then inject that config and launch the game.
 
 ## Server browser
-The 'Servers' tab lists every Killing Floor server steam knows about, with live player counts, map and ping.  Password protected servers are marked with a padlock.  Clicking a server opens a panel underneath with its address, a copy button and who is playing right now, names, scores and how long they have been in.  Hitting 'Connect' (or double clicking the row) injects your config and then starts the game on that server.
+The 'Servers' tab lists every Killing Floor server steam knows about, with live player counts, map, difficulty and ping.  Password protected servers are marked with a padlock, and there is a box in the details panel to give one a password.  Filter by name or map, by difficulty, to dedicated servers only, and (on by default) away from servers running a build you cannot join.
+
+Clicking a server opens a panel underneath with its address, a copy button, what steam knows about it (version, VAC, which OS, bots) and who is playing right now: names, scores and how long they have been in.  A selected server keeps itself up to date every few seconds for as long as it stays selected, so you can watch a server fill up.  Nothing else is polled, and nothing refreshes on a timer.  Hitting 'Connect' (or double clicking the row) injects your config and then starts the game on that server.
+
+Window size, column widths and the sort you left it on are remembered.
 
 ## Favorites
-The star in the first column saves a server.  The 'Favorites' tab lists what you have starred, refreshes it on its own (so you can see who is on your usual server without loading the whole list) and takes an address directly, `123.45.67.89:7707`, for servers steam does not list or that you were simply handed.  Saved servers live in your settings file and survive a refresh, a restart and the server dropping off steams list entirely.
+The star in the first column saves a server.  The 'Favorites' tab lists what you have starred, refreshes it on its own (so you can see who is on your usual server without loading the whole list) and takes an address directly, `123.45.67.89:7707` or a hostname, for servers steam does not list or that you were simply handed.  Saved servers live in your settings file, keep their password, and survive a refresh, a restart and the server dropping off steams list entirely.
 
 Give it the port you would type after `open` in the console.  Unreal answers server queries one port above the game, so that is tried first and the port as given second, and whatever the server reports for itself wins over either.
 

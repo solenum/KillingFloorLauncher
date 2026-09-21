@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Net;
 using System.Text;
 using System.Text.Json;
@@ -130,9 +131,54 @@ namespace KFLauncher.Models
             failed += Check(ServerBrowser.ParsePlayers([0xFF, 0xFF, 0xFF, 0xFF, 0x44, 9, 0]) is { Count: 0 }, "a lying count does not run off the end");
 
             // favorites are a record inside the settings file, which json has to round trip
-            JsonConfig config = new() { Favorites = [new Favorite("1.2.3.4:7708", 7707)] };
+            JsonConfig config = new() { Favorites = [new Favorite("1.2.3.4:7708", 7707, "hunter2")] };
             JsonConfig? reloaded = JsonSerializer.Deserialize<JsonConfig>(JsonSerializer.Serialize(config));
-            failed += Check(reloaded?.Favorites is [{ Query: "1.2.3.4:7708", GamePort: 7707 }], "favorites survive a save and load");
+            failed += Check(reloaded?.Favorites is [{ Query: "1.2.3.4:7708", GamePort: 7707, Password: "hunter2" }], "favorites survive a save and load");
+
+            // and one saved before there were passwords still loads
+            JsonConfig? old = JsonSerializer.Deserialize<JsonConfig>("""{"Favorites":[{"Query":"1.2.3.4:7708","GamePort":7707}]}""");
+            failed += Check(old?.Favorites is [{ GamePort: 7707, Password: null }], "a favorite saved by an older build still loads");
+
+            // the difficulty the server list carries, as "dedicated;flag;difficulty"
+            failed += Check(ServerBrowser.ParseDifficulty("d;0;2") == 2, "difficulty read from the list tag");
+            failed += Check(ServerBrowser.ParseDifficulty("l;1;4") == 4, "difficulty read off a listen server too");
+            failed += Check(ServerBrowser.ParseDifficulty("nonsense") == -1, "an unreadable tag means unknown");
+            failed += Check(ServerBrowser.ParseDifficulty(null) == -1, "a missing tag means unknown");
+
+            // a player list too big for one packet comes back in numbered pieces
+            byte[] whole = [0xFF, 0xFF, 0xFF, 0xFF, 0x44, 1, 0, (byte)'a', 0, 1, 2, 3, 4, 5, 6, 7, 8];
+            byte[] head = [0xFE, 0xFF, 0xFF, 0xFF, 1, 0, 0, 0, 2, 0, 0x00, 0x04];
+            byte[] tail = [0xFE, 0xFF, 0xFF, 0xFF, 1, 0, 0, 0, 2, 1, 0x00, 0x04];
+            byte[]? glued = ServerBrowser.Reassemble([[.. head, .. whole[..9]], [.. tail, .. whole[9..]]]);
+            failed += Check(glued is not null && glued.SequenceEqual(whole), "a split reply is glued back together");
+
+            // some servers leave the payload size out, which only the first piece gives away
+            byte[]? noSize = ServerBrowser.Reassemble([[.. head[..10], .. whole[..9]], [.. tail[..10], .. whole[9..]]]);
+            failed += Check(noSize is not null && noSize.SequenceEqual(whole), "a split reply without the size field is glued too");
+            failed += Check(ServerBrowser.Reassemble([[.. head, .. whole]]) is null, "a piece missing means no reply at all");
+
+            // keys the game has not written yet have to be added, not quietly skipped
+            const string sections = "[Engine.Input]\r\nQ=QuickHeal\r\n\r\n[Engine.PlayerController]\r\nDesiredFOV=85\r\n";
+            string added = KFConfig.SetIni(sections, "[Engine.PlayerController]", "bNeverSwitchOnPickup", "True");
+            failed += Check(added.Contains("DesiredFOV=85\r\nbNeverSwitchOnPickup=True"), "a missing key is added under the last setting in its section");
+            failed += Check(added.IndexOf("bNeverSwitchOnPickup", StringComparison.Ordinal) > added.IndexOf("[Engine.PlayerController]", StringComparison.Ordinal), "and lands inside it");
+            failed += Check(added.Contains("Q=QuickHeal"), "without disturbing the rest");
+
+            string invented = KFConfig.SetIni(sections, "[KFMod.KFHumanPawn]", "bUseBlurEffect", "False");
+            failed += Check(invented.Contains("[KFMod.KFHumanPawn]\r\nbUseBlurEffect=False"), "a missing section is created for it");
+            failed += Check(KFConfig.SetIni(sections, "[Engine.PlayerController]", "DesiredFOV", "95").Contains("DesiredFOV=95"), "an existing key is just set");
+            failed += Check(KFConfig.GetIni(sections, "Q") == "QuickHeal", "a value can be read back out");
+
+            // binds are the users, we only hang our own command off the end of one
+            string chained = KFConfig.ChainBind("W=MoveForward | crouch\n", "W", "MoveForward", "fov 95", true);
+            failed += Check(chained.Contains("W=MoveForward | crouch | fov 95"), $"the fov rides along on whatever is bound, got {KFConfig.GetIni(chained, "W")}");
+            failed += Check(KFConfig.GetIni(KFConfig.ChainBind(chained, "W", "MoveForward", "fov 95", false), "W") == "MoveForward | crouch", "and comes back off without taking the rest with it");
+            failed += Check(KFConfig.GetIni(KFConfig.ChainBind(chained, "W", "MoveForward", "fov 110", true), "W") == "MoveForward | crouch | fov 110", "a changed fov replaces the old one");
+
+            string custom = "Q=say hello\n";
+            failed += Check(KFConfig.SwapBind(custom, "Q", "QuickHeal", "quickheal thing", true) == custom, "a bind we did not put there is left alone");
+            failed += Check(KFConfig.GetIni(KFConfig.SwapBind("Q=QuickHeal\n", "Q", "QuickHeal", "quickheal thing", true), "Q") == "quickheal thing", "a stock bind is ours to take");
+            failed += Check(KFConfig.GetIni(KFConfig.SwapBind("Q=quickheal thing\n", "Q", "QuickHeal", "quickheal thing", false), "Q") == "QuickHeal", "and to give back");
 
             // ini patching only touches whole keys at the start of a line
             string ini = "[Engine]\r\nMaxClientFrameRate=60\r\nQuality=3\r\nQ=QuickHeal\r\nMouseSamplingTime = 0.05\r\n";
@@ -144,9 +190,85 @@ namespace KFLauncher.Models
             failed += Check(patched.Contains("Quality=3"), "longer key with the same prefix left alone");
             failed += Check(KFConfig.PatchIni(ini, "NotThere", "1") == ini, "missing key changes nothing");
 
+            failed += PatchRun();
+
             Console.WriteLine(failed == 0 ? "selftest OK" : $"selftest FAILED ({failed})");
 
             return failed == 0 ? 0 : 1;
+        }
+
+        /// <summary>
+        /// The whole patcher over a throwaway copy of the stock config: on, then off again, which
+        /// is the part that used to quietly do nothing for keys the game had not written yet.
+        /// </summary>
+        private static int PatchRun()
+        {
+            int failed = 0;
+            string game = Path.Combine(Path.GetTempPath(), $"kflauncher-selftest-{Environment.ProcessId}");
+            Directory.CreateDirectory(Path.Combine(game, "System"));
+
+            try
+            {
+                File.WriteAllText(Path.Combine(game, "System", "KillingFloor.ini"), DefaultConfigs.KillingFloorIni);
+                File.WriteAllText(Path.Combine(game, "System", "User.ini"), DefaultConfigs.UserIni);
+
+                JsonConfig settings = new() { GamePath = game, SetFov = true, Fov = "95", BetterAudio = true, DisableBlur = true, NoSwitchOnPickup = true };
+                KFConfig patcher = new(settings);
+
+                failed += Check(patcher.ApplySetPatches().Length == 0, "a sane config patches without complaint");
+
+                string kf = patcher.KillingFloorIni;
+                string user = patcher.UserIni;
+
+                failed += Check(KFConfig.GetIni(kf, "ReduceMouseLag") == "False", "the mouse lag flush is turned off, not on");
+                failed += Check(KFConfig.GetIni(kf, "MaxInternetClientRate") == "20000", "the rate cap that was clamping netspeed is raised");
+                failed += Check(KFConfig.GetIni(user, "ConfiguredInternetSpeed") == "20000", "and the configured speed with it");
+                failed += Check(KFConfig.GetIni(user, "MouseSmoothingMode") == "0", "a key the game has not written yet is still set");
+                failed += Check(KFConfig.GetIni(user, "bUseBlurEffect") == "False", "a key in a section that does not exist yet is still set");
+                failed += Check(KFConfig.GetIni(user, "bNeverSwitchOnPickup") == "True", "pickup switching off");
+                failed += Check(KFConfig.GetIni(kf, "UseEAX") == "True" && KFConfig.GetIni(kf, "Channels") == "64", "audio opened up");
+                failed += Check(KFConfig.GetIni(user, "W") == "MoveForward | fov 95", $"the fov rides on the forward bind, got {KFConfig.GetIni(user, "W")}");
+                failed += Check(KFConfig.GetIni(user, "LeftMouse") == "Fire | netspeed 20000", "and the netspeed on the mouse");
+
+                // now every toggle the other way, which has to put the stock values back
+                settings.SetFov = false;
+                settings.BetterAudio = false;
+                settings.DisableBlur = false;
+                settings.NoSwitchOnPickup = false;
+                settings.FixMouseInput = false;
+                settings.ImproveNetcode = false;
+                settings.QuickHeal = false;
+                patcher.ApplySetPatches();
+
+                kf = patcher.KillingFloorIni;
+                user = patcher.UserIni;
+
+                failed += Check(KFConfig.GetIni(kf, "ReduceMouseLag") == "True", "unticking puts the renderer back");
+                failed += Check(KFConfig.GetIni(kf, "MaxInternetClientRate") == "10000", "and the rate caps");
+                failed += Check(KFConfig.GetIni(user, "W") == "MoveForward", "and takes the fov back off the bind");
+                failed += Check(KFConfig.GetIni(user, "LeftMouse") == "Fire", "and the netspeed off the mouse");
+                failed += Check(KFConfig.GetIni(user, "Q") == "QuickHeal", "and the quickheal bind");
+                failed += Check(KFConfig.GetIni(kf, "UseEAX") == "False", "and the audio");
+
+                // a number nobody can use is left out, and said out loud
+                settings.SetFov = true;
+                settings.Fov = "wide";
+                string warning = patcher.ApplySetPatches();
+                failed += Check(warning.Contains("field of view"), $"a fov that is not a number is refused, got \"{warning}\"");
+                failed += Check(KFConfig.GetIni(patcher.UserIni, "DesiredFOV") == "85.000000", "and the stock value used instead");
+                failed += Check(KFConfig.GetIni(patcher.UserIni, "W") == "MoveForward", "and nothing chained onto the bind either");
+
+                // a key that means one thing in one section and something else in another
+                failed += Check(KFConfig.GetIni(patcher.KillingFloorIni, "MaxClientRate") == "15000", "the net driver rate is the one that was set");
+                string demo = KFConfig.SetIni("[IpDrv.TcpNetDriver]\nMaxClientRate=15000\n\n[Engine.DemoRecDriver]\nMaxClientRate=25000\n", "[IpDrv.TcpNetDriver]", "MaxClientRate", "20000");
+                failed += Check(demo.Contains("MaxClientRate=20000") && demo.Contains("MaxClientRate=25000"), "the demo recorder keeps its own");
+            }
+            finally
+            {
+                Directory.Delete(game, recursive: true);
+            }
+
+            return failed;
         }
 
         private static void Str(List<byte> buffer, string value)

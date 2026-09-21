@@ -12,6 +12,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -21,8 +22,14 @@ namespace KFLauncher.ViewModels
     {
         private readonly KFConfig kfConfig;
         private readonly List<ServerInfo> allServers = new();
+
+        /// <summary>Whatever most of the list is running, which is what you can actually join.</summary>
+        private string currentVersion = string.Empty;
         private CancellationTokenSource? refresh;
         private CancellationTokenSource? playerQuery;
+
+        /// <summary>How often the selected server is asked again.  Nothing else is polled.</summary>
+        private static readonly TimeSpan WatchInterval = TimeSpan.FromSeconds(5);
 
         public JsonConfig Config { get; }
 
@@ -118,16 +125,23 @@ namespace KFLauncher.ViewModels
                 {
                     this.OnPropertyChanged(nameof(this.NeedsServerSource));
                 }
+
+                if (e.PropertyName is nameof(JsonConfig.DifficultyFilter) or nameof(JsonConfig.DedicatedOnly)
+                    or nameof(JsonConfig.HideOtherVersions))
+                {
+                    this.ApplyFilter();
+                }
             };
 
             foreach (Favorite favorite in this.Config.Favorites)
             {
                 if (IPEndPoint.TryParse(favorite.Query, out IPEndPoint? query))
                 {
-                    this.Favorites.Add(new ServerInfo
+                    this.Track(new ServerInfo
                     {
                         Query = query,
                         GamePort = favorite.GamePort,
+                        Password = favorite.Password ?? string.Empty,
                         Name = $"{query.Address}:{favorite.GamePort}",
                         IsFavorite = true,
                     });
@@ -170,16 +184,23 @@ namespace KFLauncher.ViewModels
                     server.IsFavorite = this.Favorites.Any(f => f.Query.Equals(server.Query));
                 }
 
+                this.currentVersion = servers.GroupBy(s => s.Version).Where(group => group.Key.Length > 0)
+                    .OrderByDescending(group => group.Count()).Select(group => group.Key).FirstOrDefault() ?? string.Empty;
+
                 this.allServers.Clear();
                 this.allServers.AddRange(servers);
                 this.ApplyFilter();
                 this.Status = $"{servers.Count} servers, checking who is home..";
 
+                // the rows on screen first, so the list people are looking at goes live straight
+                // away instead of after every dead server in the list has timed out
+                List<ServerInfo> order = [.. servers.Where(this.Passes), .. servers.Where(s => !this.Passes(s))];
+
                 // steams counts are a minute or so stale, so ask each server itself and time the reply
                 // as ping.  one batch of results per trip to the ui thread, a dispatch per server
                 // buries it under thousands of tiny callbacks and the window stops redrawing.
                 int done = 0;
-                foreach (ServerInfo[] batch in servers.Chunk(64))
+                foreach (ServerInfo[] batch in order.Chunk(64))
                 {
                     A2SInfo?[] live = await Task.WhenAll(batch.Select(server => ServerBrowser.QueryAsync(server.Query, ct: cts.Token)));
 
@@ -281,10 +302,10 @@ namespace KFLauncher.ViewModels
                 // patching walks both ini files a fair few times, keep it off the ui thread
                 this.Status = $"Patching config, then joining {server.Name}..";
                 TraceLog.Log("connect: patching config");
-                await Task.Run(() =>
+                string warnings = await Task.Run(() =>
                 {
                     this.kfConfig.FixConfig();
-                    this.kfConfig.ApplySetPatches();
+                    return this.kfConfig.ApplySetPatches();
                 });
 
                 TraceLog.Log("connect: getting out of the way");
@@ -294,7 +315,7 @@ namespace KFLauncher.ViewModels
                 await Task.Run(() => Open(server.LaunchUri));
                 TraceLog.Log("connect: steam uri handed over");
 
-                this.Status = $"Handed {server.Name} to steam";
+                this.Status = $"Handed {server.Name} to steam.  {warnings}".TrimEnd();
             }
             catch (Exception ex)
             {
@@ -303,10 +324,16 @@ namespace KFLauncher.ViewModels
             }
         }
 
-        partial void OnSelectedServerChanged(ServerInfo? value) => _ = this.LoadPlayers(value);
+        partial void OnSelectedServerChanged(ServerInfo? value) => this.Watch(value);
 
-        /// <summary>Who is on the selected server, asked of the server itself.</summary>
-        private async Task LoadPlayers(ServerInfo? server)
+        partial void OnSelectedFavoriteChanged(ServerInfo? value) => this.Watch(value);
+
+        /// <summary>
+        /// Follow whichever server is selected: who is on it, its slots and a fresh ping, since one
+        /// udp round trip is a noisy way to measure one.  Dropped the moment something else is
+        /// picked, so nothing is polled that nobody is looking at.
+        /// </summary>
+        private void Watch(ServerInfo? server)
         {
             SafeCancel(this.playerQuery);
             this.playerQuery = null;
@@ -320,46 +347,82 @@ namespace KFLauncher.ViewModels
 
             CancellationTokenSource cts = new();
             this.playerQuery = cts;
+            _ = this.WatchSelected(server, cts);
+        }
+
+        private async Task WatchSelected(ServerInfo server, CancellationTokenSource cts)
+        {
             this.PlayersStatus = "Asking the server who is playing..";
 
-            List<PlayerInfo>? players;
             try
             {
-                players = await ServerBrowser.QueryPlayersAsync(server.Query, ct: cts.Token);
+                while (!cts.IsCancellationRequested)
+                {
+                    A2SInfo? live = await ServerBrowser.QueryAsync(server.Query, ct: cts.Token);
+                    List<PlayerInfo>? players = await ServerBrowser.QueryPlayersAsync(server.Query, ct: cts.Token);
+
+                    // another row was clicked while this one was still answering
+                    if (cts.IsCancellationRequested)
+                    {
+                        return;
+                    }
+
+                    if (live is not null)
+                    {
+                        server.Apply(live);
+                    }
+
+                    this.Players = players ?? [];
+                    this.PlayersStatus = players switch
+                    {
+                        null => "The server did not answer",
+                        { Count: 0 } => "Nobody playing right now",
+                        _ => $"{players.Count} playing",
+                    };
+
+                    await Task.Delay(WatchInterval, cts.Token);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // something else was selected
             }
             catch (Exception ex)
             {
                 // nothing awaits this, so an escaping exception would just vanish
                 TraceLog.Error("player query", ex);
                 this.PlayersStatus = "Could not ask the server who is playing";
-                return;
             }
-
-            // another row was clicked while this one was still answering
-            if (cts.IsCancellationRequested)
-            {
-                return;
-            }
-
-            this.Players = players ?? [];
-            this.PlayersStatus = players switch
-            {
-                null => "The server did not answer",
-                { Count: 0 } => "Nobody playing right now",
-                _ => $"{players.Count} playing",
-            };
         }
 
         [RelayCommand]
-        private async Task CopyAddress()
+        private async Task CopyAddress(ServerInfo? server)
         {
-            if (this.SelectedServer is null)
+            if (server is null)
             {
                 return;
             }
 
-            await this.CopyAsync(this.SelectedServer.Address);
-            this.Status = $"Copied {this.SelectedServer.Address}";
+            await this.CopyAsync(server.Address);
+            this.Status = $"Copied {server.Address}";
+        }
+
+        /// <summary>The combo box counts from zero, the filter uses -1 for "any".</summary>
+        public int DifficultyIndex
+        {
+            get => this.Config.DifficultyFilter + 1;
+            set => this.Config.DifficultyFilter = value - 1;
+        }
+
+        /// <summary>
+        /// The grid sorts itself while it is open; this is only so the next launch comes up the
+        /// way it was left.  Clicking a new column sorts up, clicking it again turns it around,
+        /// which is what the grid itself does.
+        /// </summary>
+        public void RememberSort(string column)
+        {
+            this.Config.SortDescending = this.Config.SortColumn == column && !this.Config.SortDescending;
+            this.Config.SortColumn = column;
         }
 
         partial void OnFilterChanged(string value) => this.ApplyFilter();
@@ -378,6 +441,21 @@ namespace KFLauncher.ViewModels
             {
                 return false;
             }
+            if (this.Config.DedicatedOnly && !server.Dedicated)
+            {
+                return false;
+            }
+            if (this.Config.DifficultyFilter >= 0 && server.Difficulty != this.Config.DifficultyFilter)
+            {
+                return false;
+            }
+
+            // a server on another build will not let you in, so it is only noise in the list
+            if (this.Config.HideOtherVersions && this.currentVersion.Length > 0
+                && server.Version.Length > 0 && server.Version != this.currentVersion)
+            {
+                return false;
+            }
 
             return this.Filter.Length == 0
                 || server.Name.Contains(this.Filter, StringComparison.OrdinalIgnoreCase)
@@ -386,7 +464,19 @@ namespace KFLauncher.ViewModels
 
         private void ApplyFilter()
         {
-            this.Servers = this.allServers.Where(this.Passes).OrderByDescending(s => s.Players).ToList();
+            IEnumerable<ServerInfo> passing = this.allServers.Where(this.Passes);
+            Func<ServerInfo, IComparable> key = this.Config.SortColumn switch
+            {
+                "Name" => server => server.Name,
+                "Map" => server => server.Map,
+                "Ping" => server => server.Ping,
+                "Difficulty" => server => server.Difficulty,
+                "Passworded" => server => server.Passworded,
+                "IsFavorite" => server => server.IsFavorite,
+                _ => server => server.Players,
+            };
+
+            this.Servers = [.. this.Config.SortDescending ? passing.OrderByDescending(key) : passing.OrderBy(key)];
         }
         #endregion
 
@@ -407,7 +497,7 @@ namespace KFLauncher.ViewModels
             }
             else
             {
-                this.Favorites.Add(server.Clone());
+                this.Track(server.Clone());
             }
 
             this.MarkFavorite(server.Query, saved is null);
@@ -430,9 +520,10 @@ namespace KFLauncher.ViewModels
                 text += ":7707";
             }
 
-            if (!IPEndPoint.TryParse(text, out IPEndPoint? entered))
+            IPEndPoint? entered = IPEndPoint.TryParse(text, out IPEndPoint? parsed) ? parsed : await Resolve(text);
+            if (entered is null)
             {
-                this.FavoritesStatus = $"{text} is not an ip and port";
+                this.FavoritesStatus = $"{text} is not an address we can look up";
                 return;
             }
 
@@ -474,7 +565,7 @@ namespace KFLauncher.ViewModels
                 server.Apply(live);
             }
 
-            this.Favorites.Add(server);
+            this.Track(server);
             this.MarkFavorite(server.Query, true);
             this.SaveFavorites();
             this.FavoriteAddress = string.Empty;
@@ -529,6 +620,28 @@ namespace KFLauncher.ViewModels
             this.SaveFavorites();
         }
 
+        /// <summary>People are given names as often as addresses, so look one up if it is not an ip.</summary>
+        private static async Task<IPEndPoint?> Resolve(string text)
+        {
+            int colon = text.LastIndexOf(':');
+            if (colon < 1 || !ushort.TryParse(text[(colon + 1)..], out ushort port))
+            {
+                return null;
+            }
+
+            try
+            {
+                IPAddress[] addresses = await Dns.GetHostAddressesAsync(text[..colon]);
+                IPAddress? address = addresses.FirstOrDefault(a => a.AddressFamily == AddressFamily.InterNetwork) ?? addresses.FirstOrDefault();
+
+                return address is null ? null : new IPEndPoint(address, port);
+            }
+            catch (Exception ex) when (ex is SocketException or ArgumentException)
+            {
+                return null;
+            }
+        }
+
         /// <summary>Keep the star in the big list in step with the favorites tab, and back.</summary>
         private void MarkFavorite(IPEndPoint query, bool favorite)
         {
@@ -538,10 +651,24 @@ namespace KFLauncher.ViewModels
             }
         }
 
+        /// <summary>Saved servers keep a password, which is edited in the grid and has to be saved.</summary>
+        private void Track(ServerInfo favorite)
+        {
+            favorite.PropertyChanged += (_, e) =>
+            {
+                if (e.PropertyName == nameof(ServerInfo.Password))
+                {
+                    this.SaveFavorites();
+                }
+            };
+
+            this.Favorites.Add(favorite);
+        }
+
         /// <summary>Assigning the list is what saves it, the config writes itself on a change.</summary>
         private void SaveFavorites()
         {
-            this.Config.Favorites = [.. this.Favorites.Select(f => new Favorite(f.Query.ToString(), f.GamePort))];
+            this.Config.Favorites = [.. this.Favorites.Select(f => new Favorite(f.Query.ToString(), f.GamePort, f.Password))];
         }
         #endregion
 
@@ -579,17 +706,17 @@ namespace KFLauncher.ViewModels
                 }
 
                 this.Status = "Patching config files..";
-                await Task.Run(() =>
+                string warnings = await Task.Run(() =>
                 {
                     this.kfConfig.FixConfig();
-                    this.kfConfig.ApplySetPatches();
+                    return this.kfConfig.ApplySetPatches();
                 });
 
                 this.GetOutOfTheWay();
 
                 // shell execute can sit there for a while waiting on steam
                 await Task.Run(() => Open("steam://run/1250"));
-                this.Status = "Killing Floor is starting";
+                this.Status = $"Killing Floor is starting.  {warnings}".TrimEnd();
             }
             catch (Exception ex)
             {
@@ -618,6 +745,31 @@ namespace KFLauncher.ViewModels
             this.Config.FixMouseInput = true;
             this.Config.DisableMovies = false;
             this.Config.QuickHeal = true;
+            this.Config.ImproveNetcode = true;
+            this.Config.BetterAudio = true;
+            this.Config.DisableBlur = true;
+        }
+
+        /// <summary>
+        /// The backup is taken once, on the first launch ever.  If that config was already in a
+        /// state, or someone has since set the game up the way they like it, this is how you say so.
+        /// </summary>
+        [RelayCommand]
+        private async Task BackupConfig()
+        {
+            if (!this.kfConfig.HasGameFiles)
+            {
+                this.Status = "No System folder at the game path, set it below";
+                return;
+            }
+
+            await Task.Run(() =>
+            {
+                InternalConfig.WriteFile("KillingFloor.ini", this.kfConfig.KillingFloorIni);
+                InternalConfig.WriteFile("User.ini", this.kfConfig.UserIni);
+            });
+
+            this.Status = "Backed up the config files as they are now.  Restore brings these back.";
         }
 
         [RelayCommand]

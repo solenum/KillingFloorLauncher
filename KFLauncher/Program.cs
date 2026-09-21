@@ -16,6 +16,14 @@ namespace KFLauncher
             Models.TraceLog.Enabled = args.Contains("--trace");
             Models.TraceLog.Log("--- launcher starting ---");
 
+            // avalonia logs to Trace, which nothing is listening to in a windowed app: with
+            // --trace send it to the terminal, where a broken binding is worth seeing
+            if (Models.TraceLog.Enabled)
+            {
+                System.Diagnostics.Trace.Listeners.Add(new System.Diagnostics.ConsoleTraceListener());
+                System.Diagnostics.Trace.AutoFlush = true;
+            }
+
             if (args.Contains("--selftest"))
             {
                 return SelfTest.Run();
