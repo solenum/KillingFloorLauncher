@@ -11,7 +11,7 @@ This is a standalone-launcher for Killing Floor (1).
 
 The goal of this launcher is to inject the games configuration files with some sane values to provide a better playing experience.  Every one of these is a checkbox on the Launch tab, and every one of them goes back to the stock value when you untick it:
 * **Uncapped frame-rate**, and the detail-dropping frame rate smoothing that reads as stutter turned off
-* **Improved net speed**, including the two rate caps in the config that were quietly clamping it: the game will not go above `MaxClientRate` and `MaxInternetClientRate` no matter what netspeed you ask for
+* **Improved net speed**, asking for the most the game's own rate caps allow.  Those caps (`MaxClientRate`, `MaxInternetClientRate`) are deliberately left at stock, and put back if something has raised them: past stock the client asks a busy server for more than it will give, and you get dropped a minute into a wave
 * **Better mouse input**: smoothing and acceleration off, sampling matched to a 1000Hz mouse, and `ReduceMouseLag` *off*, which despite the name is a full gpu flush every frame
 * **Field of view** (the stock 85 is cropped rather than widened on a widescreen monitor, and the game resets it at trader time, so the launcher sets it in the config *and* chains it onto the forward bind)
 * **Mouse locked to the game window** under proton, so the cursor cannot wander onto a second monitor mid-wave

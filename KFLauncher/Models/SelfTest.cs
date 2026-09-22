@@ -227,14 +227,15 @@ namespace KFLauncher.Models
                 string user = patcher.UserIni;
 
                 failed += Check(KFConfig.GetIni(kf, "ReduceMouseLag") == "False", "the mouse lag flush is turned off, not on");
-                failed += Check(KFConfig.GetIni(kf, "MaxInternetClientRate") == "20000", "the rate cap that was clamping netspeed is raised");
-                failed += Check(KFConfig.GetIni(user, "ConfiguredInternetSpeed") == "20000", "and the configured speed with it");
+                failed += Check(KFConfig.GetIni(kf, "MaxClientRate") == "15000", "the rate caps are left at stock");
+                failed += Check(KFConfig.GetIni(kf, "MaxInternetClientRate") == "10000", "both of them, ticked or not");
+                failed += Check(KFConfig.GetIni(user, "ConfiguredInternetSpeed") == "15000", "and the speed asks for what the caps allow");
                 failed += Check(KFConfig.GetIni(user, "MouseSmoothingMode") == "0", "a key the game has not written yet is still set");
                 failed += Check(KFConfig.GetIni(user, "bUseBlurEffect") == "False", "a key in a section that does not exist yet is still set");
                 failed += Check(KFConfig.GetIni(user, "bNeverSwitchOnPickup") == "True", "pickup switching off");
                 failed += Check(KFConfig.GetIni(kf, "UseEAX") == "True" && KFConfig.GetIni(kf, "Channels") == "64", "audio opened up");
                 failed += Check(KFConfig.GetIni(user, "W") == "MoveForward | fov 95", $"the fov rides on the forward bind, got {KFConfig.GetIni(user, "W")}");
-                failed += Check(KFConfig.GetIni(user, "LeftMouse") == "Fire | netspeed 20000", "and the netspeed on the mouse");
+                failed += Check(KFConfig.GetIni(user, "LeftMouse") == "Fire | netspeed 30000", "and the netspeed on the mouse");
 
                 // now every toggle the other way, which has to put the stock values back
                 settings.SetFov = false;
@@ -250,7 +251,7 @@ namespace KFLauncher.Models
                 user = patcher.UserIni;
 
                 failed += Check(KFConfig.GetIni(kf, "ReduceMouseLag") == "True", "unticking puts the renderer back");
-                failed += Check(KFConfig.GetIni(kf, "MaxInternetClientRate") == "10000", "and the rate caps");
+                failed += Check(KFConfig.GetIni(user, "ConfiguredInternetSpeed") == "9636", "and the configured speed");
                 failed += Check(KFConfig.GetIni(user, "W") == "MoveForward", "and takes the fov back off the bind");
                 failed += Check(KFConfig.GetIni(user, "LeftMouse") == "Fire", "and the netspeed off the mouse");
                 failed += Check(KFConfig.GetIni(user, "Q") == "QuickHeal", "and the quickheal bind");

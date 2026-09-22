@@ -87,14 +87,18 @@ namespace KFLauncher.Models
             kf = SetIni(kf, LevelInfo, "MaxClientFrameRate", this.config.UnlockFramerate ? "300.000000" : "+90.0");
             kf = PatchIni(kf, "MinDesiredFrameRate", this.config.UnlockFramerate ? "1.000000" : "35.000000");
 
-            // the client clamps its own rate to these two, so raising ConfiguredInternetSpeed on
-            // its own did nothing: the netspeed chained onto the mouse was being cut to 10000
-            kf = SetIni(kf, NetDriver, "MaxClientRate", this.config.ImproveNetcode ? "20000" : "15000");
-            kf = SetIni(kf, NetDriver, "MaxInternetClientRate", this.config.ImproveNetcode ? "20000" : "10000");
-            user = SetIni(user, Player, "ConfiguredInternetSpeed", this.config.ImproveNetcode ? "20000" : "9636");
+            // These two clamp the client, and raising them past stock is how you get dropped off a
+            // busy server a minute in: the game asks for more than the server wants to give it.
+            // They go back to stock whether the box is ticked or not, because a build that shipped
+            // them at 20000 is out there and this is what puts it right.
+            kf = SetIni(kf, NetDriver, "MaxClientRate", "15000");
+            kf = SetIni(kf, NetDriver, "MaxInternetClientRate", "10000");
+
+            // so the netspeed fix is what it always was: ask for the most the caps will allow
+            user = SetIni(user, Player, "ConfiguredInternetSpeed", this.config.ImproveNetcode ? "15000" : "9636");
             foreach ((string bind, string stock) in new[] { ("LeftMouse", "Fire"), ("MiddleMouse", "AltFire"), ("RightMouse", "Aiming") })
             {
-                user = ChainBind(user, bind, stock, "netspeed 20000", this.config.ImproveNetcode);
+                user = ChainBind(user, bind, stock, "netspeed 30000", this.config.ImproveNetcode);
             }
 
             // ReduceMouseLag flushes the gpu every frame, which is the lag it claims to reduce
