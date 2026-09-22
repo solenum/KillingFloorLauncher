@@ -31,6 +31,9 @@ namespace KFLauncher.ViewModels
         /// <summary>How often the selected server is asked again.  Nothing else is polled.</summary>
         private static readonly TimeSpan WatchInterval = TimeSpan.FromSeconds(5);
 
+        /// <summary>Shorter than this and an ini is not a config, it is the remains of one.</summary>
+        private const int Usable = 100;
+
         public JsonConfig Config { get; }
 
         /// <summary>Swapped wholesale rather than mutated, one grid rebind instead of one per row.</summary>
@@ -81,30 +84,6 @@ namespace KFLauncher.ViewModels
             this.Config = InternalConfig.ReadConfig();
             this.kfConfig = new KFConfig(this.Config);
 
-            // a locked or unreadable ini must not cost us the window: the launch tab still works
-            try
-            {
-                if (this.Config.FirstLaunch)
-                {
-                    if (!InternalConfig.AppFileExists("KillingFloor.ini"))
-                    {
-                        Debug.WriteLine("First launch, backing up KillingFloor.ini");
-                        InternalConfig.WriteFile("KillingFloor.ini", this.kfConfig.KillingFloorIni);
-                    }
-                    if (!InternalConfig.AppFileExists("User.ini"))
-                    {
-                        Debug.WriteLine("First launch, backing up User.ini");
-                        InternalConfig.WriteFile("User.ini", this.kfConfig.UserIni);
-                    }
-
-                    this.Config.FirstLaunch = false;
-                }
-            }
-            catch (Exception ex)
-            {
-                TraceLog.Error("first launch backup", ex);
-            }
-
             // an empty url means "whatever this build ships with", so configs written before a
             // relay existed pick it up too
             if (this.Config.ServerListUrl.Length == 0)
@@ -115,6 +94,19 @@ namespace KFLauncher.ViewModels
             if (this.Config.GamePath.Length == 0)
             {
                 this.Config.GamePath = KFConfig.DetectGamePath();
+            }
+
+            // after the game path, not before it: this used to run first, read nothing, and write
+            // two empty files, which then counted as a backup and was never taken again
+            try
+            {
+                Backup("KillingFloor.ini", this.kfConfig.KillingFloorIni);
+                Backup("User.ini", this.kfConfig.UserIni);
+            }
+            catch (Exception ex)
+            {
+                // a locked or unreadable ini must not cost us the window
+                TraceLog.Error("backup", ex);
             }
 
             InternalConfig.WriteConfig(this.Config);
@@ -775,25 +767,47 @@ namespace KFLauncher.ViewModels
         [RelayCommand]
         private async Task RestoreConfig()
         {
-            await Task.Run(() =>
+            int restored = await Task.Run(() =>
             {
+                int done = 0;
                 string kf = InternalConfig.ReadFile("KillingFloor.ini");
                 string usr = InternalConfig.ReadFile("User.ini");
-                if (kf.Length > 100)
+                if (kf.Length > Usable)
                 {
                     Debug.WriteLine("Restoring KillingFloor.ini");
                     this.kfConfig.KillingFloorIni = kf;
+                    done++;
                 }
-                if (usr.Length > 100)
+                if (usr.Length > Usable)
                 {
                     Debug.WriteLine("Restoring User.ini");
                     this.kfConfig.UserIni = usr;
+                    done++;
                 }
+
+                return done;
             });
 
-            this.Status = "Restored the original configuration files";
+            // saying nothing when there is nothing to restore is how an empty backup goes unnoticed
+            this.Status = restored == 2
+                ? "Restored the backed up configuration files"
+                : $"Restored {restored} of 2 files: there is no backup of the rest to put back";
         }
         #endregion
+
+        /// <summary>
+        /// Keep a copy of a config file, if it is worth keeping and we have not got one already.
+        /// Length is the test at both ends, so the empty backups an older build left behind are
+        /// replaced by a real one rather than sitting there looking like a backup.
+        /// </summary>
+        private static void Backup(string name, string ini)
+        {
+            if (ini.Length > Usable && InternalConfig.ReadFile(name).Length <= Usable)
+            {
+                Debug.WriteLine($"Backing up {name}");
+                InternalConfig.WriteFile(name, ini);
+            }
+        }
 
         /// <summary>The refresh disposes its own source, so a late cancel can land on a dead one.</summary>
         private static void SafeCancel(CancellationTokenSource? cts)

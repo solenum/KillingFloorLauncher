@@ -64,10 +64,5 @@ namespace KFLauncher.Models
                 return string.Empty;
             }
         }
-
-        public static bool AppFileExists(string name)
-        {
-            return File.Exists(Path.Combine(AppDataPath, name));
-        }
     }
 }

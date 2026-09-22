@@ -77,9 +77,6 @@ namespace KFLauncher.Models
         [ObservableProperty]
         private string protonPrefix = string.Empty;
 
-        [ObservableProperty]
-        private bool firstLaunch = true;
-
         /// <summary>0 leave open, 1 minimize, 2 close.  Minimizing stops avalonia painting the
         /// window, and tiling wms like bspwm keep it on screen anyway, so it looks frozen there.</summary>
         [ObservableProperty]
