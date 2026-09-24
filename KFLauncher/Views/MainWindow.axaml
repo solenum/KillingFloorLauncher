@@ -28,6 +28,7 @@
                     <StackPanel Orientation="Horizontal" Spacing="12">
                         <TextBlock Text="{Binding Map}" Foreground="#8b93a1"/>
                         <TextBlock Text="{Binding DifficultyText}" Foreground="#8b93a1"/>
+                        <TextBlock Text="{Binding WaveText, StringFormat='Wave {0}'}" Foreground="#8b93a1" IsVisible="{Binding WaveText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
                         <TextBlock Text="{Binding Slots}" Foreground="#8b93a1"/>
                         <TextBlock Text="{Binding PingText}" Foreground="#8b93a1"/>
                     </StackPanel>
@@ -182,6 +183,7 @@
                                 </DataGridTemplateColumn>
                                 <DataGridTextColumn Header="Map" Binding="{Binding Map}" Width="170"/>
                                 <DataGridTextColumn Header="Difficulty" Binding="{Binding DifficultyText}" SortMemberPath="Difficulty" Width="110"/>
+                                <DataGridTextColumn Header="Wave" Binding="{Binding WaveText}" SortMemberPath="Wave" Width="80"/>
                                 <DataGridTextColumn Header="Players" Binding="{Binding Slots}" SortMemberPath="Players" Width="95"/>
                                 <DataGridTextColumn Header="Ping" Binding="{Binding PingText}" SortMemberPath="Ping" Width="70"/>
                                 <DataGridTemplateColumn Header="" Width="120">
@@ -257,6 +259,7 @@
                             </DataGridTemplateColumn>
                             <DataGridTextColumn Header="Address" Binding="{Binding Address}" Width="170"/>
                             <DataGridTextColumn Header="Map" Binding="{Binding Map}" Width="160"/>
+                            <DataGridTextColumn Header="Wave" Binding="{Binding WaveText}" SortMemberPath="Wave" Width="80"/>
                             <DataGridTextColumn Header="Players" Binding="{Binding Slots}" SortMemberPath="Players" Width="90"/>
                             <DataGridTextColumn Header="Ping" Binding="{Binding PingText}" SortMemberPath="Ping" Width="70"/>
                             <DataGridTemplateColumn Header="" Width="120">

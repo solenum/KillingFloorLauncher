@@ -44,6 +44,15 @@ namespace KFLauncher.Models
         [NotifyPropertyChangedFor(nameof(DifficultyText))]
         private int difficulty = -1;
 
+        /// <summary>Off unreals own query, not steam.  0 is unknown.</summary>
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(WaveText))]
+        private int wave;
+
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(WaveText))]
+        private int finalWave;
+
         [ObservableProperty]
         [NotifyPropertyChangedFor(nameof(Details))]
         private string version = string.Empty;
@@ -82,6 +91,8 @@ namespace KFLauncher.Models
 
         public string Slots => $"{this.Players}/{this.MaxPlayers}";
 
+        public string WaveText => this.FinalWave > 0 ? $"{this.Wave}/{this.FinalWave}" : string.Empty;
+
         public string DifficultyText => this.Difficulty switch
         {
             0 => "Beginner",
@@ -119,6 +130,8 @@ namespace KFLauncher.Models
             IsFavorite = this.IsFavorite,
             Password = this.Password,
             Difficulty = this.Difficulty,
+            Wave = this.Wave,
+            FinalWave = this.FinalWave,
             Version = this.Version,
             Dedicated = this.Dedicated,
             Secure = this.Secure,
@@ -137,6 +150,8 @@ namespace KFLauncher.Models
             this.Passworded = live.Passworded;
             this.Bots = live.Bots;
             this.Secure = live.Vac;
+            this.Wave = live.Wave;
+            this.FinalWave = live.FinalWave;
 
             if (live.Version.Length > 0)
             {
@@ -181,7 +196,13 @@ namespace KFLauncher.Models
     }
 
     /// <summary>Live values straight off a server, used to refresh a <see cref="ServerInfo"/>.</summary>
-    internal record A2SInfo(string Name, string Map, int Players, int MaxPlayers, int Bots, bool Passworded, bool Vac, string Version, ushort GamePort, int Ping);
+    internal record A2SInfo(string Name, string Map, int Players, int MaxPlayers, int Bots, bool Passworded, bool Vac, string Version, ushort GamePort, int Ping)
+    {
+        /// <summary>Not A2S at all, filled in from unreals query when it answers.  0 is unknown.</summary>
+        public int Wave { get; init; }
+
+        public int FinalWave { get; init; }
+    }
 
     /// <summary>
     /// Server list from the steam web api, live player counts and ping over A2S.
@@ -207,6 +228,7 @@ namespace KFLauncher.Models
         private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(20) };
         private static readonly byte[] InfoRequest = [0xFF, 0xFF, 0xFF, 0xFF, 0x54, .. Encoding.ASCII.GetBytes("Source Engine Query\0")];
         private static readonly byte[] PlayerRequest = [0xFF, 0xFF, 0xFF, 0xFF, 0x55, 0xFF, 0xFF, 0xFF, 0xFF];
+        private static readonly byte[] UnrealInfoRequest = [0x80, 0x00, 0x00, 0x00, 0x00];
 
         /// <summary>Every KF server steam knows about.  Throws <see cref="HttpRequestException"/> on a bad key.</summary>
         public static async Task<List<ServerInfo>> FetchListAsync(string listUrl, string apiKey, CancellationToken ct = default)
@@ -301,12 +323,93 @@ namespace KFLauncher.Models
                     reply = await ReceiveAsync(udp, timeoutMs, ct);
                 }
 
-                return reply is null ? null : ParseInfo(reply, server, (int)sw.ElapsedMilliseconds);
+                A2SInfo? info = reply is null ? null : ParseInfo(reply, server, (int)sw.ElapsedMilliseconds);
+
+                // steam knows nothing of waves, unreals own query one above the game port does.  the
+                // server has just answered, so a quiet port there is a firewall and not worth the
+                // full timeout on every refresh
+                if (info is { GamePort: > 0 and < ushort.MaxValue })
+                {
+                    (int wave, int finalWave) = await QueryWaveAsync(new IPEndPoint(server.Address, info.GamePort + 1), Math.Min(timeoutMs, (info.Ping * 3) + 250), ct);
+                    info = info with { Wave = wave, FinalWave = finalWave };
+                }
+
+                return info;
             }
             catch (Exception ex) when (ex is SocketException or OperationCanceledException)
             {
                 return null;
             }
+        }
+
+        /// <summary>Unreal 2's native info query.  (0, 0) when it does not answer.</summary>
+        private static async Task<(int Wave, int FinalWave)> QueryWaveAsync(IPEndPoint unreal, int timeoutMs, CancellationToken ct)
+        {
+            try
+            {
+                using UdpClient udp = new();
+                udp.Connect(unreal);
+
+                using CancellationTokenSource timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                timeout.CancelAfter(timeoutMs);
+
+                // not ReceiveAsync, unreals replies do not carry the A2S header it looks for
+                await udp.SendAsync(UnrealInfoRequest, timeout.Token);
+                return ParseWave((await udp.ReceiveAsync(timeout.Token)).Buffer);
+            }
+            catch (Exception ex) when (ex is SocketException or OperationCanceledException)
+            {
+                return default;
+            }
+        }
+
+        /// <summary>
+        /// Unreal's info reply: header, server id, ip, port, query port, name, map and game type,
+        /// then players and max players, which KF follows with the wave it is on and the last one.
+        /// </summary>
+        internal static (int Wave, int FinalWave) ParseWave(ReadOnlySpan<byte> data)
+        {
+            if (data.Length < 5 || BinaryPrimitives.ReadUInt32LittleEndian(data) != 0x80 || data[4] != 0x00)
+            {
+                return default;
+            }
+
+            try
+            {
+                int i = 9;                              // header, command, server id
+                SkipUnrealString(data, ref i);          // ip
+                i += 8;                                 // port, query port
+                SkipUnrealString(data, ref i);          // name
+                SkipUnrealString(data, ref i);          // map
+                SkipUnrealString(data, ref i);          // game type
+                i += 8;                                 // players, max players
+
+                return (BinaryPrimitives.ReadInt32LittleEndian(data.Slice(i, 4)), BinaryPrimitives.ReadInt32LittleEndian(data.Slice(i + 4, 4)));
+            }
+            catch (Exception ex) when (ex is ArgumentOutOfRangeException or IndexOutOfRangeException)
+            {
+                return default;
+            }
+        }
+
+        /// <summary>
+        /// Unreal writes the length first as a compact index: sign in the top bit of the first byte
+        /// (negative is utf16), 6 bits of value, and 7 more from each byte after while bit 0x40 then
+        /// 0x80 says there is more.  Server names with colour codes run past 63 bytes, so it matters.
+        /// </summary>
+        private static void SkipUnrealString(ReadOnlySpan<byte> data, ref int i)
+        {
+            byte first = data[i++];
+            int length = first & 0x3F;
+            bool more = (first & 0x40) != 0;
+            for (int shift = 6; more && shift < 32; shift += 7)
+            {
+                byte next = data[i++];
+                length |= (next & 0x7F) << shift;
+                more = (next & 0x80) != 0;
+            }
+
+            i += (first & 0x80) != 0 ? length * 2 : length;
         }
 
         /// <summary>Who is on the server right now.  Null when it does not answer.</summary>

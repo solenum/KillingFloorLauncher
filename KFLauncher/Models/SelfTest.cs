@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Text;
 using System.Text.Json;
@@ -78,6 +79,23 @@ namespace KFLauncher.Models
 
             server.Apply(parsed!);
             failed += Check(server.GamePort == 7707, "a reported game port is taken");
+
+            // unreals info reply, off a live server mid game.  the name is past 63 bytes with its
+            // colour codes, so its length takes two bytes
+            List<byte> unreal = [0x80, 0, 0, 0, 0, 0, 0, 0, 0, 0x00, 0xCB, 0x54, 0, 0, 0, 0, 0, 0, 0x71, 0x01];
+            unreal.AddRange(Enumerable.Repeat((byte)'x', 112));
+            unreal.Add(0);
+            unreal.AddRange([0x20, 0x1B, 0x32, 0xC8, 0x32, .. Encoding.ASCII.GetBytes("KF-Duo-SentinelsBasement-BS"), 0]);
+            unreal.AddRange([0x0B, .. Encoding.ASCII.GetBytes("KFGameType"), 0]);
+            unreal.AddRange([4, 0, 0, 0, 12, 0, 0, 0, 3, 0, 0, 0, 7, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 2, (byte)'0', 0, 0, 0, 0]);
+            failed += Check(ServerBrowser.ParseWave(unreal.ToArray()) == (3, 7), $"wave parsed, got {ServerBrowser.ParseWave(unreal.ToArray())}");
+            failed += Check(ServerBrowser.ParseWave(unreal.ToArray().AsSpan(0, 60)) == (0, 0), "a cut off unreal reply is no wave, not a crash");
+            failed += Check(ServerBrowser.ParseWave([0xFF, 0xFF, 0xFF, 0xFF, 0x49]) == (0, 0), "an A2S reply is not an unreal one");
+
+            server.Apply(parsed! with { Wave = 3, FinalWave = 7 });
+            failed += Check(server.WaveText == "3/7", $"wave text, got {server.WaveText}");
+            server.Apply(parsed!);
+            failed += Check(server.WaveText == string.Empty, "no wave shows nothing rather than 0/0");
 
             // favorites are copies, so refreshing the big list cannot reach into the saved ones
             server.IsFavorite = true;

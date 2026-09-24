@@ -46,7 +46,7 @@ Under proton the mouse lock needs the wine prefix the game runs in.  That is fou
 If the game is lacking config files or they are malformed, the tool will attempt to generate a default one (based on the default configuration the game generates for new installations), it will then inject that config and launch the game.
 
 ## Server browser
-The 'Servers' tab lists every Killing Floor server steam knows about, with live player counts, map, difficulty and ping.  Password protected servers are marked with a padlock, and there is a box in the details panel to give one a password.  Filter by name or map, by difficulty, to dedicated servers only, and (on by default) away from servers running a build you cannot join.
+The 'Servers' tab lists every Killing Floor server steam knows about, with live player counts, map, difficulty, the wave the game is on (`3/10`) and ping.  Password protected servers are marked with a padlock, and there is a box in the details panel to give one a password.  Filter by name or map, by difficulty, to dedicated servers only, and (on by default) away from servers running a build you cannot join.
 
 Clicking a server opens a panel underneath with its address, a copy button, what steam knows about it (version, VAC, which OS, bots) and who is playing right now: names, scores and how long they have been in.  A selected server keeps itself up to date every few seconds for as long as it stays selected, so you can watch a server fill up.  Nothing else is polled, and nothing refreshes on a timer.  Hitting 'Connect' (or double clicking the row) injects your config and then starts the game on that server.
 
@@ -71,7 +71,7 @@ The list itself has to come from the steam web api, because valves old keyless m
 * **A list url.**  One machine polls steam with one api key and serves the result, and every launcher reads that.  Nobody else needs a key.  Releases ship pointed at `https://everparser.com/kf-servers.json`, so out of the box there is nothing to set up.
 * **Your own api key.**  Grab one from [steamcommunity.com/dev/apikey](https://steamcommunity.com/dev/apikey) and paste it into the launcher once, it is stored with the rest of your settings.
 
-Player counts, ping and the padlock are read straight from the servers themselves over A2S either way, no key involved.
+Player counts, ping and the padlock are read straight from the servers themselves over A2S either way, no key involved.  The wave comes from unreals own query one port above the game port, which a few hosts firewall, so their wave stays blank.
 
 ## Hosting the list for everyone
 `tools/` has everything: a script that asks steam for the list and writes it out, plus a systemd timer that runs it every 30 seconds.  The file it writes is steams own reply byte for byte, so the launcher reads a relay and the api directly with the same code.
@@ -115,7 +115,7 @@ dotnet build KFLauncher/KFLauncher.csproj
 dotnet run --project KFLauncher/KFLauncher.csproj -- --selftest
 ```
 
-`--selftest` checks the parts that are easy to break quietly: the A2S info and player parsers, the server list parser, the ini patcher, the wine registry patcher and the running game detection.  Pushing a `v*` tag builds the self contained binaries for both platforms and puts them on a release.
+`--selftest` checks the parts that are easy to break quietly: the A2S info and player parsers, the unreal wave parser, the server list parser, the ini patcher, the wine registry patcher and the running game detection.  Pushing a `v*` tag builds the self contained binaries for both platforms and puts them on a release.
 
 ### Screenshot
 The patches, and where the launcher gets its server list from:
