@@ -36,6 +36,8 @@ namespace KFLauncher.ViewModels
 
         public JsonConfig Config { get; }
 
+        public IReadOnlyList<string> BindKeys => KFConfig.BindKeys;
+
         /// <summary>Swapped wholesale rather than mutated, one grid rebind instead of one per row.</summary>
         [ObservableProperty]
         private IReadOnlyList<ServerInfo> servers = [];

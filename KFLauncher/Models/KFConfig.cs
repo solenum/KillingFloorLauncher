@@ -83,8 +83,10 @@ namespace KFLauncher.Models
             kf = PatchIni(kf, "bNeverPrecache", this.config.DisableCache ? "True" : "False");
             kf = SetIni(kf, GameEngine, "CacheSizeMegs", this.config.IncreaseCacheLimit ? "256" : "32");
 
-            // the engine drops detail to hold MinDesiredFrameRate, which reads as stutter
-            kf = SetIni(kf, LevelInfo, "MaxClientFrameRate", this.config.UnlockFramerate ? "300.000000" : "+90.0");
+            // the engine drops detail to hold MinDesiredFrameRate, which reads as stutter.  The cap
+            // is the same MaxClientFrameRate, which the engine only holds to in online games
+            string cap = this.config.CapFramerate ? Number(this.config.FramerateCap, string.Empty, 30, 1000, warnings, "framerate cap") : string.Empty;
+            kf = SetIni(kf, LevelInfo, "MaxClientFrameRate", cap.Length > 0 ? $"{cap}.000000" : this.config.UnlockFramerate ? "300.000000" : "+90.0");
             kf = PatchIni(kf, "MinDesiredFrameRate", this.config.UnlockFramerate ? "1.000000" : "35.000000");
 
             // These two clamp the client, and raising them past stock is how you get dropped off a
@@ -129,12 +131,27 @@ namespace KFLauncher.Models
             user = SwapBind(user, "Q", "QuickHeal", QuickHealBind, this.config.QuickHeal);
 
             // the game resets the view to DefaultFOV at trader time and on map change, so the value
-            // goes in the config, and rides along on the forward bind to survive anything else
+            // goes in the config, and rides along on a bind (forward, unless the user picks one) to
+            // survive anything else.  It comes off every bind first, the key may have changed since
             string fov = this.config.SetFov ? Number(this.config.Fov, string.Empty, 30, 170, warnings, "field of view") : string.Empty;
             bool setFov = fov.Length > 0;
             user = SetIni(user, PlayerController, "DesiredFOV", setFov ? fov : "85.000000");
             user = SetIni(user, PlayerController, "DefaultFOV", setFov ? fov : "85.000000");
-            user = ChainBind(user, "W", "MoveForward", $"fov {fov}", setFov);
+            // ponytail: a fov alone on a previously picked unbound key stays there after a key change,
+            // telling it from a zoom bind of the users would mean remembering where we put it
+            user = Regex.Replace(user, @"^(\w+\s*=[^\r\n]*?)\s*\|\s*fov\s+\S+", "$1", RegexOptions.Multiline | RegexOptions.IgnoreCase);
+            string fovKey = BindKeys.FirstOrDefault(k => k.Equals(this.config.FovKey, StringComparison.OrdinalIgnoreCase)) ?? string.Empty;
+            if (fovKey.Length == 0)
+            {
+                if (setFov)
+                {
+                    warnings.Add($"Put the field of view on W: \"{this.config.FovKey}\" is not a key the game knows.");
+                }
+
+                fovKey = "W";
+            }
+
+            user = ChainBind(user, fovKey, GetIni(DefaultConfigs.UserIni, fovKey), $"fov {fov}", setFov);
 
             if (this.config.SetResolution)
             {
@@ -375,14 +392,23 @@ namespace KFLauncher.Models
             }
 
             string verb = tail.Split(' ')[0];
-            string bare = Regex.Replace(current, $@"\s*\|\s*{Regex.Escape(verb)}\s+\S+", string.Empty, RegexOptions.IgnoreCase).Trim();
+            string bare = Regex.Replace(current, $@"(?:^|\s*\|)\s*{Regex.Escape(verb)}\s+\S+", string.Empty, RegexOptions.IgnoreCase).Trim();
             if (bare.Length == 0)
             {
                 bare = stock;
             }
 
-            return SetIni(ini, Input, key, enable ? $"{bare} | {tail}" : bare);
+            return SetIni(ini, Input, key, !enable ? bare : bare.Length > 0 ? $"{bare} | {tail}" : tail);
         }
+
+        /// <summary>Every key the game takes a bind on, as the stock config lists them.</summary>
+        internal static readonly string[] BindKeys = DefaultConfigs.UserIni
+            .Split(Input)[1].Split("\n[")[0]
+            .Split('\n')
+            .Select(line => line.Split('=')[0].Trim())
+            .Where(key => Regex.IsMatch(key, @"^\w+$"))
+            .Distinct()
+            .ToArray();
 
         /// <summary>Swap a whole bind between stock and ours, and leave anything else well alone.</summary>
         internal static string SwapBind(string ini, string key, string stock, string ours, bool enable)

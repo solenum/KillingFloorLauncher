@@ -67,6 +67,17 @@ namespace KFLauncher.Models
         [ObservableProperty]
         private string fov = "95";
 
+        /// <summary>The bind the fov rides along on, so it comes back after the game resets it.</summary>
+        [ObservableProperty]
+        private string fovKey = "W";
+
+        /// <summary>Overrides the unlocked (or stock) MaxClientFrameRate with a number of the users.</summary>
+        [ObservableProperty]
+        private bool capFramerate = false;
+
+        [ObservableProperty]
+        private string framerateCap = "144";
+
         [ObservableProperty]
         private string resX = "1920";
 

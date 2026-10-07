@@ -254,8 +254,19 @@ namespace KFLauncher.Models
                 failed += Check(KFConfig.GetIni(kf, "UseEAX") == "True" && KFConfig.GetIni(kf, "Channels") == "64", "audio opened up");
                 failed += Check(KFConfig.GetIni(user, "W") == "MoveForward | fov 95", $"the fov rides on the forward bind, got {KFConfig.GetIni(user, "W")}");
                 failed += Check(KFConfig.GetIni(user, "LeftMouse") == "Fire | netspeed 30000", "and the netspeed on the mouse");
+                failed += Check(KFConfig.GetIni(kf, "MaxClientFrameRate") == "300.000000", "the framerate unlocked");
+
+                // the fov moves with the key it is put on, and the framerate cap beats the unlock
+                settings.FovKey = "F13";
+                settings.CapFramerate = true;
+                patcher.ApplySetPatches();
+                user = patcher.UserIni;
+                failed += Check(KFConfig.GetIni(user, "F13") == "fov 95", $"an unbound key takes the fov on its own, got {KFConfig.GetIni(user, "F13")}");
+                failed += Check(KFConfig.GetIni(user, "W") == "MoveForward", "and the key it was on before gives it up");
+                failed += Check(KFConfig.GetIni(patcher.KillingFloorIni, "MaxClientFrameRate") == "144.000000", "the framerate capped");
 
                 // now every toggle the other way, which has to put the stock values back
+                settings.CapFramerate = false;
                 settings.SetFov = false;
                 settings.BetterAudio = false;
                 settings.DisableBlur = false;
@@ -270,7 +281,8 @@ namespace KFLauncher.Models
 
                 failed += Check(KFConfig.GetIni(kf, "ReduceMouseLag") == "True", "unticking puts the renderer back");
                 failed += Check(KFConfig.GetIni(user, "ConfiguredInternetSpeed") == "9636", "and the configured speed");
-                failed += Check(KFConfig.GetIni(user, "W") == "MoveForward", "and takes the fov back off the bind");
+                failed += Check(KFConfig.GetIni(user, "F13") == string.Empty, "and takes the fov back off the bind");
+                failed += Check(KFConfig.GetIni(kf, "MaxClientFrameRate") == "300.000000", "and the cap off the framerate");
                 failed += Check(KFConfig.GetIni(user, "LeftMouse") == "Fire", "and the netspeed off the mouse");
                 failed += Check(KFConfig.GetIni(user, "Q") == "QuickHeal", "and the quickheal bind");
                 failed += Check(KFConfig.GetIni(kf, "UseEAX") == "False", "and the audio");
@@ -282,6 +294,14 @@ namespace KFLauncher.Models
                 failed += Check(warning.Contains("field of view"), $"a fov that is not a number is refused, got \"{warning}\"");
                 failed += Check(KFConfig.GetIni(patcher.UserIni, "DesiredFOV") == "85.000000", "and the stock value used instead");
                 failed += Check(KFConfig.GetIni(patcher.UserIni, "W") == "MoveForward", "and nothing chained onto the bind either");
+
+                settings.Fov = "95";
+                settings.FovKey = "Banana";
+                settings.CapFramerate = true;
+                settings.FramerateCap = "lots";
+                warning = patcher.ApplySetPatches();
+                failed += Check(warning.Contains("Banana") && KFConfig.GetIni(patcher.UserIni, "W") == "MoveForward | fov 95", $"a key the game does not know puts the fov on forward, got \"{warning}\"");
+                failed += Check(warning.Contains("framerate cap") && KFConfig.GetIni(patcher.KillingFloorIni, "MaxClientFrameRate") == "300.000000", "a cap that is not a number leaves the framerate unlocked");
 
                 // a key that means one thing in one section and something else in another
                 failed += Check(KFConfig.GetIni(patcher.KillingFloorIni, "MaxClientRate") == "15000", "the net driver rate is the one that was set");
