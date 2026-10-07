@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -114,7 +115,14 @@ namespace KFLauncher.Models
             kf = PatchIni(kf, "CheckForOverflow", this.config.OptimizePerformance ? "True" : "False");
             kf = PatchIni(kf, "AvoidHitches", this.config.OptimizePerformance ? "True" : "False");
 
-            kf = SetIni(kf, Audio, "MusicVolume", this.config.DisableMusic ? "0.000000" : "0.010000");
+            // the volume is the slider in game, so it is only ours to zero for the mute and to put
+            // back after.  A build that wrote 1% on every launch is out there, that goes back too
+            bool quiet = !double.TryParse(GetIni(kf, "MusicVolume"), NumberStyles.Float, CultureInfo.InvariantCulture, out double volume) || volume <= 0.01;
+            if (this.config.DisableMusic || quiet)
+            {
+                kf = SetIni(kf, Audio, "MusicVolume", this.config.DisableMusic ? "0.000000" : GetIni(DefaultConfigs.KillingFloorIni, "MusicVolume"));
+            }
+
             user = SetIni(user, ROPlayer, "bDisableMusicInGame", this.config.DisableMusic ? "True" : "False");
 
             // the stock config ships openal on the safe settings, which is not what it can do

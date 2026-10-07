@@ -287,6 +287,20 @@ namespace KFLauncher.Models
                 failed += Check(KFConfig.GetIni(user, "Q") == "QuickHeal", "and the quickheal bind");
                 failed += Check(KFConfig.GetIni(kf, "UseEAX") == "False", "and the audio");
 
+                // the music volume is the users, the launcher only zeroes it to mute and puts it back
+                patcher.KillingFloorIni = KFConfig.PatchIni(patcher.KillingFloorIni, "MusicVolume", "0.600000");
+                patcher.ApplySetPatches();
+                failed += Check(KFConfig.GetIni(patcher.KillingFloorIni, "MusicVolume") == "0.600000", "the music volume set in game is left alone");
+                settings.DisableMusic = true;
+                patcher.ApplySetPatches();
+                failed += Check(KFConfig.GetIni(patcher.KillingFloorIni, "MusicVolume") == "0.000000", "disabling music zeroes it");
+                settings.DisableMusic = false;
+                patcher.ApplySetPatches();
+                failed += Check(KFConfig.GetIni(patcher.KillingFloorIni, "MusicVolume") == "0.10000", "and unticking puts the stock volume back");
+                patcher.KillingFloorIni = KFConfig.PatchIni(patcher.KillingFloorIni, "MusicVolume", "0.010000");
+                patcher.ApplySetPatches();
+                failed += Check(KFConfig.GetIni(patcher.KillingFloorIni, "MusicVolume") == "0.10000", "as does the 1% an older build left behind");
+
                 // a number nobody can use is left out, and said out loud
                 settings.SetFov = true;
                 settings.Fov = "wide";
